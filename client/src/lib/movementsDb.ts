@@ -727,6 +727,149 @@ export const MOVEMENTS: MovementDef[] = [
     typicalLoad: 0.4,
     secondsPerRep: 3,
   },
+
+  // ─── STRONGMAN ─────────────────────────────────────────────────────────────────────
+  // Charges typiques très lourdes, dominante force maximale et endurance de force,
+  // composante gainage essentielle. Filière ATP-PCr dominante avec basculement
+  // glycolytique sur les enchainements (medley).
+  {
+    id: "atlas_stone",
+    name: "Atlas Stone (to platform)",
+    aliases: re(
+      "atlas\\s*stone(s)?",
+      "stone\\s*to\\s*shoulder",
+      "stone\\s*lift",
+      "stone\\s*over\\s*bar",
+      "pierre\\s*d['’]?atlas",
+      "chargement\\s*pierre"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["endurance_force", "gainage", "puissance"],
+    energetics: { atp_pcr: 0.7, glycolytic: 0.3, oxidative: 0 },
+    typicalLoad: 0.85,
+    secondsPerRep: 12,
+  },
+  {
+    id: "yoke_walk",
+    name: "Yoke Walk",
+    aliases: re(
+      "yoke\\s*walk",
+      "yoke\\s*carry",
+      "marche\\s*sous\\s*yoke",
+      "port[ée]\\s*yoke"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["gainage", "endurance_force"],
+    energetics: { atp_pcr: 0.55, glycolytic: 0.35, oxidative: 0.1 },
+    typicalLoad: 0.9,
+    secondsPerRep: 25,
+  },
+  {
+    id: "log_press",
+    name: "Log Clean & Press",
+    aliases: re(
+      "log\\s*press",
+      "log\\s*clean(\\s*(and|&|et)\\s*press)?",
+      "log\\s*lift",
+      "log\\s*overhead",
+      "\u00e9paul[ée]-?jet[ée]?\\s*au\\s*log"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["puissance", "skill", "gainage"],
+    energetics: { atp_pcr: 0.8, glycolytic: 0.2, oxidative: 0 },
+    typicalLoad: 0.8,
+    secondsPerRep: 8,
+  },
+  {
+    id: "farmer_handles_heavy",
+    name: "Farmer's Handles (heavy)",
+    aliases: re(
+      "farmer'?s?\\s*handles?",
+      "farmer'?s?\\s*walk",
+      "heavy\\s*farmer'?s?",
+      "port[ée]\\s*fermier\\s*lourd"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["endurance_force", "gainage"],
+    energetics: { atp_pcr: 0.55, glycolytic: 0.35, oxidative: 0.1 },
+    typicalLoad: 0.85,
+    secondsPerRep: 20,
+  },
+  {
+    id: "tire_flip",
+    name: "Tire Flip",
+    aliases: re(
+      "tire\\s*flip(s)?",
+      "flip\\s*de\\s*pneu(s)?",
+      "retournement\\s*de\\s*pneu(s)?",
+      "truck\\s*tire\\s*flip"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "puissance",
+    secondaryCapacities: ["force_max", "endurance_force", "gainage"],
+    energetics: { atp_pcr: 0.6, glycolytic: 0.35, oxidative: 0.05 },
+    typicalLoad: 0.8,
+    secondsPerRep: 10,
+  },
+  {
+    id: "sled_heavy",
+    name: "Heavy Sled Drag",
+    aliases: re(
+      "heavy\\s*sled",
+      "sled\\s*drag",
+      "prowler\\s*push",
+      "prowler\\s*sprint",
+      "power\\s*sled",
+      "tra[iî]neau\\s*lourd"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["force_max", "lactique", "vo2max"],
+    energetics: { atp_pcr: 0.3, glycolytic: 0.5, oxidative: 0.2 },
+    typicalLoad: 0.8,
+    secondsPerRep: 25,
+  },
+  {
+    id: "axle_deadlift",
+    name: "Axle Deadlift",
+    aliases: re(
+      "axle\\s*deadlift",
+      "axle\\s*dl",
+      "axle\\s*clean",
+      "axle\\s*press",
+      "barre\\s*axle",
+      "fat\\s*bar\\s*deadlift"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["endurance_force", "gainage", "skill"],
+    energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
+    typicalLoad: 0.85,
+    secondsPerRep: 6,
+  },
+  {
+    id: "sandbag_carry",
+    name: "Sandbag Carry / Over-Shoulder",
+    aliases: re(
+      "sandbag\\s*carry",
+      "sandbag\\s*over\\s*shoulder",
+      "sandbag\\s*to\\s*shoulder",
+      "sandbag\\s*over\\s*bar",
+      "sandbag\\s*clean",
+      "sac\\s*de\\s*sable\\s*port[ée]",
+      "port[ée]\\s*sac\\s*de\\s*sable"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["force_max", "gainage", "puissance"],
+    energetics: { atp_pcr: 0.4, glycolytic: 0.45, oxidative: 0.15 },
+    typicalLoad: 0.7,
+    secondsPerRep: 12,
+  },
 ];
 
 // Liste plate pour debug
