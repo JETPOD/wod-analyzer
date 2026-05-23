@@ -15,6 +15,8 @@ import {
   type Capacity,
   type WodAnalysis,
 } from "@/lib/wodAnalyzer";
+import { MOVEMENTS } from "@/lib/movementsDb";
+import type { MovementDef } from "@/lib/movementsDb";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -23,9 +25,12 @@ import { Input } from "@/components/ui/input";
 import { AppHeader } from "@/components/AppHeader";
 import { useHistory } from "@/lib/HistoryContext";
 import { useAnalyzerStore } from "@/lib/analyzerStore";
+import { useCustomMovements } from "@/lib/CustomMovementsContext";
 import { computeRecovery } from "@/lib/recovery";
 import { exportAnalysisPdf } from "@/lib/pdfExport";
 import { useToast } from "@/hooks/use-toast";
+import { CustomMovementDialog } from "@/components/CustomMovementDialog";
+import { MovementsCatalog } from "@/components/MovementsCatalog";
 import {
   Activity,
   Flame,
@@ -38,6 +43,8 @@ import {
   FileDown,
   HeartPulse,
   Loader2,
+  PlusCircle,
+  X,
 } from "lucide-react";
 
 const ORANGE = "#FF6B35";
@@ -62,6 +69,62 @@ const CAPACITY_DESC: Record<Capacity, string> = {
   gainage: "Stabilité tronc et posture",
   skill: "Coordination gymnastique / haltéro",
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Détection des candidats inconnus dans le WOD
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Mots-outils à ignorer lors de la détection des candidats
+const STOP_WORDS = new Set([
+  "amrap", "emom", "for", "time", "rounds", "round", "min", "sec", "kg", "lb",
+  "lbs", "kcal", "cal", "reps", "rep", "mile", "miles", "km", "rft", "chipper",
+  "tabata", "hyrox", "strength", "x", "de", "du", "la", "le", "les", "et",
+  "with", "avec", "each", "chaque", "rest", "repos", "on", "off", "max",
+  "score", "total", "part", "buy", "in", "out", "wod", "at", "to", "the",
+  "and", "or", "into", "after", "before", "then", "per", "a", "an", "as",
+  "is", "are", "be", "m", "ft", "s", "h", "run", "row", "sets", "set",
+  "every", "minute", "minutes", "seconds", "second", "sprint", "slow",
+  "easy", "hard", "heavy", "light", "moderate", "between", "during",
+]);
+
+function detectCandidates(text: string, allMovements: MovementDef[]): string[] {
+  const candidates: string[] = [];
+  const lines = text.split(/\n/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // La ligne doit contenir un nombre (sinon c'est probablement un titre/commentaire)
+    if (!/\d/.test(trimmed)) continue;
+
+    // Extraire les tokens textuels (≥ 3 chars, pas purement numériques)
+    const tokens = trimmed
+      .toLowerCase()
+      .split(/[\s,;:/()\-+&×x@]+/)
+      .filter((t) => t.length >= 3 && !/^\d+([.,]\d+)?$/.test(t) && !/^[%rmx]$/.test(t));
+
+    for (const token of tokens) {
+      if (STOP_WORDS.has(token)) continue;
+      // Vérifier si ce token est reconnu dans le catalogue
+      const isKnown = allMovements.some((mv) =>
+        mv.aliases.some((rx) => {
+          const r = new RegExp(rx.source, rx.flags + (rx.flags.includes("g") ? "" : "g"));
+          return r.test(token);
+        })
+      );
+      if (!isKnown && !candidates.includes(token)) {
+        candidates.push(token);
+      }
+    }
+  }
+
+  return candidates.slice(0, 8); // Limiter à 8 candidats pour ne pas surcharger l'UI
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Composants UI
+// ─────────────────────────────────────────────────────────────────────────────
 
 function MetaStat({
   icon,
@@ -184,70 +247,159 @@ function RadarCapacities({ analysis }: { analysis: WodAnalysis }) {
   );
 }
 
-function MovementBreakdown({ analysis }: { analysis: WodAnalysis }) {
-  if (analysis.movements.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground py-8 text-center">
-        Aucun mouvement reconnu. Vérifiez l'orthographe (Pull-Up, Thruster, Run, etc.).
-      </div>
-    );
-  }
+interface MovementBreakdownProps {
+  analysis: WodAnalysis;
+  wodText: string;
+  allMovements: MovementDef[];
+  onOpenDialog: (prefill?: string) => void;
+}
+
+function MovementBreakdown({ analysis, wodText, allMovements, onOpenDialog }: MovementBreakdownProps) {
+  const { customMovements, removeCustomMovement, clearCustomMovements } = useCustomMovements();
+
+  const candidates = useMemo(
+    () => detectCandidates(wodText, allMovements),
+    [wodText, allMovements]
+  );
+
   return (
-    <div className="space-y-2">
-      {analysis.movements.map((m, i) => (
-        <div
-          key={i}
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-secondary/40 border border-border/50"
-        >
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-sm">{m.movement.name}</span>
-              <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-                {m.movement.category === "weightlifting"
-                  ? "Haltéro"
-                  : m.movement.category === "gymnastics"
-                  ? "Gym"
-                  : m.movement.category === "cardio"
-                  ? "Cardio"
-                  : m.movement.category === "core"
-                  ? "Core"
-                  : "Hyrox"}
-              </Badge>
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5 truncate">
-              {m.distanceM ? `${Math.round(m.distanceM)}m` : `${m.reps} reps`}
-              {m.loadKg ? ` · ${Math.round(m.loadKg)}kg` : ""}
-              {m.loadPctRm ? ` · ${Math.round(m.loadPctRm * 100)}%RM` : ""}
-              {` · ~${Math.round(m.estimatedSeconds)}s`}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium"
-              style={{
-                background: `${ORANGE}22`,
-                color: ORANGE,
-                border: `1px solid ${ORANGE}40`,
-              }}
+    <div className="space-y-3">
+      {/* Liste mouvements détectés */}
+      {analysis.movements.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-8 text-center">
+          Aucun mouvement reconnu. Vérifiez l'orthographe (Pull-Up, Thruster, Run, etc.).
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {analysis.movements.map((m, i) => (
+            <div
+              key={i}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-secondary/40 border border-border/50"
             >
-              {capacityLabel(m.movement.dominantCapacity)}
-            </span>
-            {m.movement.secondaryCapacities.slice(0, 2).map((s) => (
-              <span
-                key={s}
-                className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px]"
-                style={{
-                  background: `${CYAN}1A`,
-                  color: CYAN,
-                  border: `1px solid ${CYAN}33`,
-                }}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm">{m.movement.name}</span>
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                    {m.movement.category === "weightlifting"
+                      ? "Haltéro"
+                      : m.movement.category === "gymnastics"
+                      ? "Gym"
+                      : m.movement.category === "cardio"
+                      ? "Cardio"
+                      : m.movement.category === "core"
+                      ? "Core"
+                      : "Hyrox"}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {m.distanceM ? `${Math.round(m.distanceM)}m` : `${m.reps} reps`}
+                  {m.loadKg ? ` · ${Math.round(m.loadKg)}kg` : ""}
+                  {m.loadPctRm ? ` · ${Math.round(m.loadPctRm * 100)}%RM` : ""}
+                  {` · ~${Math.round(m.estimatedSeconds)}s`}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium"
+                  style={{
+                    background: `${ORANGE}22`,
+                    color: ORANGE,
+                    border: `1px solid ${ORANGE}40`,
+                  }}
+                >
+                  {capacityLabel(m.movement.dominantCapacity)}
+                </span>
+                {m.movement.secondaryCapacities.slice(0, 2).map((s) => (
+                  <span
+                    key={s}
+                    className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px]"
+                    style={{
+                      background: `${CYAN}1A`,
+                      color: CYAN,
+                      border: `1px solid ${CYAN}33`,
+                    }}
+                  >
+                    {capacityLabel(s)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Candidats potentiellement non reconnus */}
+      {candidates.length > 0 && (
+        <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
+          <p className="text-xs text-muted-foreground font-medium">
+            Mouvements potentiellement non reconnus dans votre WOD :
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {candidates.map((c) => (
+              <button
+                key={c}
+                onClick={() => onOpenDialog(c)}
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border border-dashed border-border hover:border-primary/60 hover:bg-secondary/60 transition-colors"
+                title={`Cliquer pour classifier « ${c} »`}
               >
-                {capacityLabel(s)}
-              </span>
+                {c}
+              </button>
             ))}
           </div>
         </div>
-      ))}
+      )}
+
+      {/* Liste des mouvements custom de session */}
+      {customMovements.length > 0 && (
+        <div className="rounded-lg border border-border/50 bg-secondary/10 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              Mes mouvements personnalisés (session)
+            </p>
+            <button
+              onClick={clearCustomMovements}
+              className="text-[10px] text-muted-foreground hover:text-destructive transition-colors underline underline-offset-2"
+            >
+              Réinitialiser
+            </button>
+          </div>
+          <div className="space-y-1">
+            {customMovements.map((mv) => (
+              <div
+                key={mv.id}
+                className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-secondary/30 border border-border/40"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-medium truncate">{mv.name}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {mv.category}
+                  </span>
+                </div>
+                <button
+                  onClick={() => removeCustomMovement(mv.id)}
+                  className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                  aria-label={`Supprimer ${mv.name}`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bouton toujours visible */}
+      <div className="pt-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onOpenDialog()}
+          className="w-full text-xs text-muted-foreground border-dashed hover:border-primary/60 hover:text-foreground"
+        >
+          <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
+          + Ajouter un mouvement non référencé
+        </Button>
+      </div>
     </div>
   );
 }
@@ -292,11 +444,14 @@ function EmptyState() {
 
 export default function Home() {
   const { currentRawText, setText } = useAnalyzerStore();
+  const { customMovements, addCustomMovement } = useCustomMovements();
   const initialText = currentRawText || EXAMPLES.fran.text;
   const [text, setLocalText] = useState<string>(initialText);
   const [submitted, setSubmitted] = useState<string>(initialText);
   const [wodName, setWodName] = useState<string>("");
   const [exporting, setExporting] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogPrefill, setDialogPrefill] = useState("");
 
   // Sync : si le store change (depuis une autre page), recharger
   useMemo(() => {
@@ -307,10 +462,16 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRawText]);
 
+  // Catalogue complet incluant les mouvements custom
+  const allMovements = useMemo(
+    () => (customMovements.length > 0 ? [...MOVEMENTS, ...customMovements] : MOVEMENTS),
+    [customMovements]
+  );
+
   const analysis = useMemo<WodAnalysis | null>(() => {
     if (!submitted.trim()) return null;
-    return analyzeWod(submitted);
-  }, [submitted]);
+    return analyzeWod(submitted, customMovements);
+  }, [submitted, customMovements]);
 
   const recovery = useMemo(() => (analysis ? computeRecovery(analysis) : null), [analysis]);
 
@@ -360,6 +521,11 @@ export default function Home() {
     } finally {
       setExporting(false);
     }
+  }
+
+  function openDialog(prefill?: string) {
+    setDialogPrefill(prefill || "");
+    setDialogOpen(true);
   }
 
   return (
@@ -680,11 +846,21 @@ export default function Home() {
                       {analysis.movements.length} détectés
                     </Badge>
                   </div>
-                  <MovementBreakdown analysis={analysis} />
+                  <MovementBreakdown
+                    analysis={analysis}
+                    wodText={submitted}
+                    allMovements={allMovements}
+                    onOpenDialog={openDialog}
+                  />
                 </Card>
               </>
             )}
           </div>
+        </div>
+
+        {/* Catalogue des mouvements */}
+        <div className="mt-6">
+          <MovementsCatalog />
         </div>
 
         <footer className="mt-12 pt-6 border-t border-border/50 text-xs text-muted-foreground flex items-center justify-between">
@@ -692,6 +868,14 @@ export default function Home() {
           <span className="hidden sm:inline">Modèle hybride filières × neuromusculaire</span>
         </footer>
       </main>
+
+      {/* Dialog mouvement custom */}
+      <CustomMovementDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initialName={dialogPrefill}
+        onAdd={addCustomMovement}
+      />
     </div>
   );
 }
