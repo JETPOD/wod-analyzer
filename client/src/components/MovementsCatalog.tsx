@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, ChevronDown } from "lucide-react";
+import { BookOpen, ChevronDown, Plus, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { MOVEMENTS } from "@/lib/movementsDb";
 import type { Capacity, Category } from "@/lib/movementsDb";
+import { useAnalyzerStore } from "@/lib/analyzerStore";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Constantes de palette app ────────────────────────────────────────────────
 const ORANGE = "#FF6B35";
@@ -89,8 +92,156 @@ function extractAliasPattern(rx: RegExp): string {
   return src;
 }
 
+// ─── Calcul du label + défaut quantité pour l'insertion ──────────────────────
+function getQuantityConfig(movement: typeof MOVEMENTS[number]): {
+  label: string;
+  defaultValue: number;
+  isDistance: boolean;
+} {
+  const { id, category, dominantCapacity } = movement;
+  const isCardioMovement = movement.isCardio || category === "cardio";
+
+  if (isCardioMovement) {
+    // Cardio: distance en mètres
+    let defaultValue = 400;
+    if (id === "row" || id === "ski_erg" || id === "echo_bike" || id === "bike_erg") {
+      defaultValue = 500;
+    } else if (id === "run") {
+      defaultValue = 400;
+    } else if (id === "burpee" || id === "burpee_box") {
+      defaultValue = 100;
+    } else if (id === "jump_rope" || id === "double_under") {
+      defaultValue = 100;
+    } else {
+      defaultValue = 400;
+    }
+    return { label: "Distance (m)", defaultValue, isDistance: true };
+  }
+
+  if (category === "hyrox") {
+    // Hyrox: distance en mètres avec standards Hyrox
+    let defaultValue = 100;
+    if (id === "sled_push") defaultValue = 50;
+    else if (id === "sled_pull") defaultValue = 50;
+    else if (id === "farmer") defaultValue = 200;
+    else if (id === "sandbag_lunge") defaultValue = 100;
+    else if (id === "burpee_broad") defaultValue = 80;
+    else defaultValue = 100;
+    return { label: "Distance (m)", defaultValue, isDistance: true };
+  }
+
+  // Tout le reste: reps basées sur dominantCapacity
+  let defaultValue = 10;
+  switch (dominantCapacity) {
+    case "force_max":
+      defaultValue = 5;
+      break;
+    case "puissance":
+      defaultValue = 10;
+      break;
+    case "endurance_force":
+      defaultValue = 15;
+      break;
+    case "gainage":
+    case "skill":
+      defaultValue = 10;
+      break;
+    case "vo2max":
+      defaultValue = 20;
+      break;
+    case "lactique":
+      defaultValue = 15;
+      break;
+    default:
+      defaultValue = 10;
+  }
+  return { label: "Reps", defaultValue, isDistance: false };
+}
+
+// ─── Mini-prompt inline ───────────────────────────────────────────────────────
+interface MiniPromptProps {
+  movement: typeof MOVEMENTS[number];
+  onConfirm: (qty: number) => void;
+  onCancel: () => void;
+}
+
+function MiniPrompt({ movement, onConfirm, onCancel }: MiniPromptProps) {
+  const config = useMemo(() => getQuantityConfig(movement), [movement]);
+  const [value, setValue] = useState<string>(String(config.defaultValue));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Auto-focus when prompt appears
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const num = parseInt(value, 10);
+      if (!isNaN(num) && num > 0) onConfirm(num);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    }
+  }
+
+  function handleConfirm() {
+    const num = parseInt(value, 10);
+    if (!isNaN(num) && num > 0) onConfirm(num);
+  }
+
+  return (
+    <div
+      className="mt-2 p-2 rounded-lg border border-border/60 bg-background/80 flex items-center gap-2"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          {config.label}
+        </label>
+        <input
+          ref={inputRef}
+          type="number"
+          min={1}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="w-full bg-transparent text-sm font-mono text-foreground outline-none border-b border-border/60 focus:border-primary/60 pb-0.5 transition-colors"
+        />
+      </div>
+      <button
+        onClick={handleConfirm}
+        className="shrink-0 px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+        style={{
+          background: `${ORANGE}22`,
+          color: ORANGE,
+          border: `1px solid ${ORANGE}60`,
+        }}
+      >
+        Ajouter
+      </button>
+      <button
+        onClick={onCancel}
+        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Annuler"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Carte d'un mouvement ─────────────────────────────────────────────────────
-function MovementCard({ movement }: { movement: typeof MOVEMENTS[number] }) {
+interface MovementCardProps {
+  movement: typeof MOVEMENTS[number];
+  isActive: boolean;
+  onActivate: () => void;
+  onDeactivate: () => void;
+  onInsert: (movement: typeof MOVEMENTS[number], qty: number) => void;
+}
+
+function MovementCard({ movement, isActive, onActivate, onDeactivate, onInsert }: MovementCardProps) {
   const isStrongman = STRONGMAN_IDS.has(movement.id);
   const displayCategory = isStrongman ? "Strongman" : CATEGORY_LABEL[movement.category];
 
@@ -103,21 +254,58 @@ function MovementCard({ movement }: { movement: typeof MOVEMENTS[number] }) {
   const { atp_pcr, glycolytic, oxidative } = movement.energetics;
 
   return (
-    <div className="rounded-xl bg-card border border-card-border p-4 space-y-3 flex flex-col min-w-0">
-      {/* Nom + catégorie */}
+    <div className="rounded-xl bg-card border border-card-border p-4 space-y-3 flex flex-col min-w-0 relative">
+      {/* Nom + catégorie + bouton + */}
       <div className="flex items-start justify-between gap-2 min-w-0">
         <div className="font-semibold text-sm leading-tight truncate flex-1">{movement.name}</div>
-        <Badge
-          variant="outline"
-          className="text-[10px] uppercase tracking-wider shrink-0"
-          style={{
-            color: isStrongman ? ORANGE : undefined,
-            borderColor: isStrongman ? `${ORANGE}60` : undefined,
-          }}
-        >
-          {displayCategory}
-        </Badge>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Badge
+            variant="outline"
+            className="text-[10px] uppercase tracking-wider"
+            style={{
+              color: isStrongman ? ORANGE : undefined,
+              borderColor: isStrongman ? `${ORANGE}60` : undefined,
+            }}
+          >
+            {displayCategory}
+          </Badge>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              isActive ? onDeactivate() : onActivate();
+            }}
+            className="flex items-center justify-center w-5 h-5 rounded-full transition-all hover:scale-110"
+            style={{
+              background: isActive ? `${ORANGE}33` : `${ORANGE}15`,
+              color: ORANGE,
+              border: `1px solid ${ORANGE}${isActive ? "80" : "40"}`,
+            }}
+            aria-label={`Ajouter ${movement.name} au WOD`}
+            title="Ajouter au WOD"
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
       </div>
+
+      {/* Mini-prompt inline */}
+      <AnimatePresence>
+        {isActive && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            style={{ overflow: "hidden" }}
+          >
+            <MiniPrompt
+              movement={movement}
+              onConfirm={(qty) => onInsert(movement, qty)}
+              onCancel={onDeactivate}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Dominante + secondaires */}
       <div className="flex flex-wrap gap-1.5">
@@ -210,6 +398,10 @@ function MovementCard({ movement }: { movement: typeof MOVEMENTS[number] }) {
 export function MovementsCatalog() {
   const [expanded, setExpanded] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FilterKey>("all");
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const { insertMovement } = useAnalyzerStore();
+  const { toast } = useToast();
 
   const filteredMovements = useMemo(() => {
     if (selectedCategory === "all") return MOVEMENTS;
@@ -235,6 +427,35 @@ export function MovementsCatalog() {
     const filterLabel = FILTER_OPTIONS.find((f) => f.key === selectedCategory)?.label ?? "";
     return `${filteredMovements.length} mouvement${filteredMovements.length > 1 ? "s" : ""} · catégorie ${filterLabel}`;
   }, [selectedCategory, filteredMovements.length, totalCount]);
+
+  const handleInsert = useCallback(
+    (movement: typeof MOVEMENTS[number], qty: number) => {
+      const config = getQuantityConfig(movement);
+      const formatted = config.isDistance
+        ? `${qty}m ${movement.name}\n`
+        : `${qty} ${movement.name}\n`;
+
+      insertMovement(formatted);
+
+      toast({
+        title: `${movement.name} ajouté au WOD`,
+        duration: 2000,
+      });
+
+      setActiveId(null);
+    },
+    [insertMovement, toast]
+  );
+
+  // Close active prompt when pressing Escape globally
+  useEffect(() => {
+    if (!activeId) return;
+    function handleGlobalEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setActiveId(null);
+    }
+    window.addEventListener("keydown", handleGlobalEsc);
+    return () => window.removeEventListener("keydown", handleGlobalEsc);
+  }, [activeId]);
 
   return (
     <Card className="bg-card border-card-border overflow-hidden">
@@ -304,7 +525,14 @@ export function MovementsCatalog() {
               {/* Grille de cartes */}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filteredMovements.map((mv) => (
-                  <MovementCard key={mv.id} movement={mv} />
+                  <MovementCard
+                    key={mv.id}
+                    movement={mv}
+                    isActive={activeId === mv.id}
+                    onActivate={() => setActiveId(mv.id)}
+                    onDeactivate={() => setActiveId(null)}
+                    onInsert={handleInsert}
+                  />
                 ))}
               </div>
 

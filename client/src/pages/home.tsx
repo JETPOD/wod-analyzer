@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   RadarChart,
@@ -443,7 +443,7 @@ function EmptyState() {
 }
 
 export default function Home() {
-  const { currentRawText, setText } = useAnalyzerStore();
+  const { currentRawText, setText, textareaRef } = useAnalyzerStore();
   const { customMovements, addCustomMovement } = useCustomMovements();
   const initialText = currentRawText || EXAMPLES.fran.text;
   const [text, setLocalText] = useState<string>(initialText);
@@ -453,11 +453,10 @@ export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogPrefill, setDialogPrefill] = useState("");
 
-  // Sync : si le store change (depuis une autre page), recharger
-  useMemo(() => {
-    if (currentRawText && currentRawText !== submitted) {
+  // Sync : si le store change (depuis une autre page ou insertion catalogue), recharger
+  useEffect(() => {
+    if (currentRawText !== text) {
       setLocalText(currentRawText);
-      setSubmitted(currentRawText);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRawText]);
@@ -565,6 +564,7 @@ export default function Home() {
               <Textarea
                 id="wod-input"
                 data-testid="input-wod"
+                ref={textareaRef}
                 value={text}
                 onChange={(e) => setLocalText(e.target.value)}
                 placeholder={"Ex:\nFor Time\n21-15-9\nThrusters 95lb\nPull-Ups"}
