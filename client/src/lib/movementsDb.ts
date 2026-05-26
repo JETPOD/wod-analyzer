@@ -316,8 +316,7 @@ export const MOVEMENTS: MovementDef[] = [
       "pull[-\\s]?up(s)?",
       "tractions?",
       "kipping\\s*pull",
-      "butterfly\\s*pull",
-      "strict\\s*pull"
+      "butterfly\\s*pull"
     ),
     category: "gymnastics",
     dominantCapacity: "endurance_force",
@@ -328,13 +327,13 @@ export const MOVEMENTS: MovementDef[] = [
   },
   {
     id: "c2b",
-    name: "Chest-to-Bar",
-    aliases: re("c2b", "chest[-\\s]?to[-\\s]?bar"),
+    name: "Chest-to-Bar Pull-Up",
+    aliases: re("c2b", "chest[-\\s]?to[-\\s]?bar", "chest\\s*to\\s*bar\\s*pull[-\\s]?up", "poitrine\\s*barre"),
     category: "gymnastics",
     dominantCapacity: "endurance_force",
-    secondaryCapacities: ["skill", "puissance"],
-    energetics: { atp_pcr: 0.3, glycolytic: 0.55, oxidative: 0.15 },
-    typicalLoad: 0.65,
+    secondaryCapacities: ["puissance", "skill"],
+    energetics: { atp_pcr: 0.35, glycolytic: 0.5, oxidative: 0.15 },
+    typicalLoad: 0,
     secondsPerRep: 2.5,
   },
   {
@@ -400,23 +399,23 @@ export const MOVEMENTS: MovementDef[] = [
   {
     id: "t2b",
     name: "Toes-to-Bar",
-    aliases: re("t2b", "toes[-\\s]?to[-\\s]?bar"),
+    aliases: re("t2b", "toes[-\\s]?to[-\\s]?bar", "toes\\s*to\\s*bar", "pieds[-\\s]?barre"),
     category: "gymnastics",
-    dominantCapacity: "gainage",
-    secondaryCapacities: ["endurance_force", "skill"],
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["gainage", "skill"],
     energetics: { atp_pcr: 0.3, glycolytic: 0.5, oxidative: 0.2 },
-    typicalLoad: 0.5,
-    secondsPerRep: 2,
+    typicalLoad: 0,
+    secondsPerRep: 2.5,
   },
   {
     id: "k2e",
-    name: "Knees-to-Elbow",
-    aliases: re("k2e", "knees[-\\s]?to[-\\s]?elbow"),
+    name: "Knees-to-Elbows",
+    aliases: re("k2e", "knees[-\\s]?to[-\\s]?elbow", "genoux[-\\s]?coudes"),
     category: "gymnastics",
-    dominantCapacity: "gainage",
-    secondaryCapacities: ["endurance_force"],
-    energetics: { atp_pcr: 0.2, glycolytic: 0.5, oxidative: 0.3 },
-    typicalLoad: 0.45,
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["gainage"],
+    energetics: { atp_pcr: 0.25, glycolytic: 0.5, oxidative: 0.25 },
+    typicalLoad: 0,
     secondsPerRep: 2,
   },
   {
@@ -584,6 +583,130 @@ export const MOVEMENTS: MovementDef[] = [
     typicalLoad: 0.3,
     secondsPerRep: 2,
   },
+  {
+    id: "lateral_lunge",
+    name: "Lateral Lunge",
+    aliases: re(
+      "lateral\\s*lunge",
+      "side\\s*lunge",
+      "fente\\s*lat[\u00e9e]rale"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["gainage"],
+    energetics: { atp_pcr: 0.1, glycolytic: 0.4, oxidative: 0.5 },
+    typicalLoad: 0.2,
+    secondsPerRep: 2.5,
+  },
+
+  // ─── GYMNASTIQUE AVANCÉE ───────────────────────────────────────────────────
+  // Mouvements à dominante force maximale ou technique, progression naturelle
+  // du catalogue gymnastics. Charge 0 = poids du corps uniquement.
+  {
+    id: "strict_pullup",
+    name: "Strict Pull-Up",
+    aliases: re(
+      "strict\\s*pull[-\\s]?up",
+      "traction\\s*stricte?",
+      "pull[-\\s]?up\\s*strict"
+    ),
+    category: "gymnastics",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["endurance_force", "skill"],
+    energetics: { atp_pcr: 0.6, glycolytic: 0.35, oxidative: 0.05 },
+    typicalLoad: 0,
+    secondsPerRep: 4,
+  },
+  {
+    id: "strict_hspu",
+    name: "Strict Handstand Push-Up",
+    aliases: re(
+      "strict\\s*hspu",
+      "strict\\s*handstand\\s*push[-\\s]?up",
+      "strict\\s*hand\\s*stand\\s*push[-\\s]?up"
+    ),
+    category: "gymnastics",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["skill", "gainage"],
+    energetics: { atp_pcr: 0.7, glycolytic: 0.25, oxidative: 0.05 },
+    typicalLoad: 0,
+    secondsPerRep: 5,
+  },
+  {
+    id: "ring_dip",
+    name: "Ring Dip",
+    aliases: re(
+      "ring\\s*dip",
+      "dip\\s*anneaux",
+      "dip\\s*aux\\s*anneaux"
+    ),
+    category: "gymnastics",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["skill", "endurance_force"],
+    energetics: { atp_pcr: 0.55, glycolytic: 0.35, oxidative: 0.1 },
+    typicalLoad: 0,
+    secondsPerRep: 3,
+  },
+  {
+    id: "bar_dip",
+    name: "Bar Dip",
+    aliases: re(
+      "bar\\s*dip",
+      "dip\\s*barre"
+    ),
+    category: "gymnastics",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["puissance", "skill"],
+    energetics: { atp_pcr: 0.4, glycolytic: 0.45, oxidative: 0.15 },
+    typicalLoad: 0,
+    secondsPerRep: 2,
+  },
+  {
+    id: "assisted_mu",
+    name: "Assisted Muscle-Up",
+    aliases: re(
+      "assisted\\s*muscle[-\\s]?up",
+      "band(?:ed)?\\s*muscle[-\\s]?up",
+      "muscle[-\\s]?up\\s*assist[\u00e9e]",
+      "muscle[-\\s]?up\\s*progression"
+    ),
+    category: "gymnastics",
+    dominantCapacity: "puissance",
+    secondaryCapacities: ["skill", "endurance_force"],
+    energetics: { atp_pcr: 0.65, glycolytic: 0.3, oxidative: 0.05 },
+    typicalLoad: 0,
+    secondsPerRep: 6,
+  },
+  {
+    id: "wall_walk",
+    name: "Wall Walk",
+    aliases: re(
+      "wall\\s*walk",
+      "marche\\s*au\\s*mur",
+      "mont[\u00e9e]e\\s*mur"
+    ),
+    category: "gymnastics",
+    dominantCapacity: "skill",
+    secondaryCapacities: ["gainage", "force_max", "endurance_force"],
+    energetics: { atp_pcr: 0.55, glycolytic: 0.35, oxidative: 0.1 },
+    typicalLoad: 0,
+    secondsPerRep: 8,
+  },
+  {
+    id: "broad_jump",
+    name: "Broad Jump",
+    aliases: re(
+      "broad\\s*jump",
+      "saut\\s*en\\s*longueur",
+      "standing\\s*long\\s*jump"
+    ),
+    category: "gymnastics",
+    dominantCapacity: "puissance",
+    secondaryCapacities: ["skill"],
+    energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
+    typicalLoad: 0,
+    secondsPerRep: 2.5,
+  },
 
   // ─── CARDIO MONOSTRUCTUREL ────────────────────────────────────────────────
   {
@@ -613,7 +736,7 @@ export const MOVEMENTS: MovementDef[] = [
   {
     id: "echo_bike",
     name: "Echo Bike",
-    aliases: re("echo\\s*bike", "assault\\s*bike", "air\\s*bike"),
+    aliases: re("echo\\s*bike", "assault\\s*bike"),
     category: "cardio",
     dominantCapacity: "vo2max",
     secondaryCapacities: ["lactique", "endurance_force"],
@@ -668,6 +791,36 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.15, glycolytic: 0.55, oxidative: 0.3 },
     typicalLoad: 0.15,
     secondsPerRep: 0.3,
+    isCardio: true,
+  },
+  {
+    id: "air_bike",
+    name: "Air Bike",
+    // Generic term; echo_bike covers branded Echo / Assault variants.
+    aliases: re("air\\s*bike", "airdyne", "fan\\s*bike"),
+    category: "cardio",
+    dominantCapacity: "vo2max",
+    secondaryCapacities: ["lactique", "endurance_force"],
+    energetics: { atp_pcr: 0.1, glycolytic: 0.45, oxidative: 0.45 },
+    typicalLoad: 0,
+    secondsPerRep: 1,
+    isCardio: true,
+  },
+  {
+    id: "echo_bike_cals",
+    name: "Echo Bike (calories)",
+    // Calorie-based variant; echo_bike covers distance.
+    aliases: re(
+      "echo\\s*bike\\s*cal(?:orie)?",
+      "assault\\s*bike\\s*cal(?:orie)?",
+      "airdyne\\s*cal(?:orie)?"
+    ),
+    category: "cardio",
+    dominantCapacity: "vo2max",
+    secondaryCapacities: ["lactique"],
+    energetics: { atp_pcr: 0.1, glycolytic: 0.5, oxidative: 0.4 },
+    typicalLoad: 0,
+    secondsPerRep: 1.5,
     isCardio: true,
   },
 
@@ -726,6 +879,86 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.05, glycolytic: 0.45, oxidative: 0.5 },
     typicalLoad: 0.4,
     secondsPerRep: 3,
+  },
+
+  // ─── POWERLIFTING / FORCE PURE ───────────────────────────────────────────
+  // Mouvements de force pure, filière ATP-PCr dominante, charges élevées
+  // (85-90 % du 1RM). Gainage essentiel sur tous les mouvements.
+  {
+    id: "paused_squat",
+    name: "Paused Back Squat",
+    aliases: re(
+      "paused\\s*(?:back\\s*)?squat",
+      "pause\\s*squat",
+      "squat\\s*pause",
+      "tempo\\s*squat"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["skill", "gainage"],
+    energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
+    typicalLoad: 0.85,
+    secondsPerRep: 8,
+  },
+  {
+    id: "pin_squat",
+    name: "Pin Squat",
+    aliases: re(
+      "pin\\s*squat",
+      "box\\s*squat\\s*pause",
+      "bottom[-\\s]?up\\s*squat"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["skill", "gainage", "puissance"],
+    energetics: { atp_pcr: 0.9, glycolytic: 0.1, oxidative: 0 },
+    typicalLoad: 0.85,
+    secondsPerRep: 7,
+  },
+  {
+    id: "rdl",
+    name: "Romanian Deadlift",
+    aliases: re(
+      "romanian\\s*deadlift",
+      "\\brdl\\b",
+      "soulev[ée]\\s*roumain",
+      "stiff[-\\s]?leg\\s*deadlift"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["endurance_force"],
+    energetics: { atp_pcr: 0.8, glycolytic: 0.2, oxidative: 0 },
+    typicalLoad: 0.7,
+    secondsPerRep: 5,
+  },
+  {
+    id: "deficit_dl",
+    name: "Deficit Deadlift",
+    aliases: re(
+      "deficit\\s*deadlift",
+      "deficit\\s*dl",
+      "soulev[ée]\\s*deficit"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["skill", "endurance_force"],
+    energetics: { atp_pcr: 0.9, glycolytic: 0.1, oxidative: 0 },
+    typicalLoad: 0.8,
+    secondsPerRep: 6,
+  },
+  {
+    id: "good_morning",
+    name: "Good Morning",
+    aliases: re(
+      "good\\s*morning",
+      "bonjour\\s*matin"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["endurance_force", "gainage"],
+    energetics: { atp_pcr: 0.65, glycolytic: 0.3, oxidative: 0.05 },
+    typicalLoad: 0.5,
+    secondsPerRep: 4,
   },
 
   // ─── STRONGMAN ─────────────────────────────────────────────────────────────────────
@@ -870,6 +1103,95 @@ export const MOVEMENTS: MovementDef[] = [
     typicalLoad: 0.7,
     secondsPerRep: 12,
   },
+  // ─── KETTLEBELL ──────────────────────────────────────────────────────────────
+  // Mouvements unilatéraux ou bilatéraux à la kettlebell. Dominante puissance /
+  // endurance de force selon la durée du set. Filière glycolytique prépondérante
+  // dès que les séries dépassent 10 reps.
+  {
+    id: "kb_clean",
+    name: "Kettlebell Clean",
+    aliases: re("kb\\s*clean", "kettlebell\\s*clean", "\\bkbc\\b"),
+    category: "weightlifting",
+    dominantCapacity: "puissance",
+    secondaryCapacities: ["endurance_force", "skill"],
+    energetics: { atp_pcr: 0.55, glycolytic: 0.4, oxidative: 0.05 },
+    typicalLoad: 0.5,
+    secondsPerRep: 3,
+  },
+  {
+    id: "kb_snatch",
+    name: "Kettlebell Snatch",
+    aliases: re("kb\\s*snatch", "kettlebell\\s*snatch"),
+    category: "weightlifting",
+    dominantCapacity: "puissance",
+    secondaryCapacities: ["endurance_force", "skill", "vo2max"],
+    energetics: { atp_pcr: 0.5, glycolytic: 0.45, oxidative: 0.05 },
+    typicalLoad: 0.5,
+    secondsPerRep: 3,
+  },
+  {
+    id: "kb_cj",
+    name: "Kettlebell Clean & Jerk",
+    aliases: re(
+      "kb\\s*c(?:\\s*[&]\\s*|\\s*et\\s*|\\s*and\\s*)j",
+      "kb\\s*clean\\s*(?:and|et|&)\\s*jerk",
+      "kettlebell\\s*clean\\s*(?:and|et|&)\\s*jerk",
+      "long\\s*cycle"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "puissance",
+    secondaryCapacities: ["endurance_force", "skill", "vo2max"],
+    energetics: { atp_pcr: 0.45, glycolytic: 0.45, oxidative: 0.1 },
+    typicalLoad: 0.5,
+    secondsPerRep: 4,
+  },
+  {
+    id: "kb_thruster",
+    name: "Kettlebell Thruster",
+    aliases: re(
+      "kb\\s*thruster",
+      "kettlebell\\s*thruster",
+      "double\\s*kb\\s*thruster"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["puissance", "lactique", "vo2max"],
+    energetics: { atp_pcr: 0.25, glycolytic: 0.6, oxidative: 0.15 },
+    typicalLoad: 0.5,
+    secondsPerRep: 3.5,
+  },
+  {
+    id: "kb_lunge",
+    name: "Kettlebell Lunge",
+    aliases: re(
+      "kb\\s*lunge",
+      "kettlebell\\s*lunge",
+      "fente\\s*kb",
+      "fente\\s*kettlebell"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["gainage"],
+    energetics: { atp_pcr: 0.15, glycolytic: 0.45, oxidative: 0.4 },
+    typicalLoad: 0.4,
+    secondsPerRep: 3,
+  },
+  {
+    id: "kb_push_press",
+    name: "Kettlebell Push Press",
+    aliases: re(
+      "kb\\s*push\\s*press",
+      "kettlebell\\s*push\\s*press",
+      "double\\s*kb\\s*push\\s*press"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "puissance",
+    secondaryCapacities: ["force_max", "endurance_force"],
+    energetics: { atp_pcr: 0.6, glycolytic: 0.35, oxidative: 0.05 },
+    typicalLoad: 0.55,
+    secondsPerRep: 3,
+  },
+
 ];
 
 // Liste plate pour debug
