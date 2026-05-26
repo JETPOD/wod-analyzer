@@ -26,8 +26,19 @@ const STRONGMAN_IDS = new Set([
   "sandbag_carry",
 ]);
 
+// ─── IDs des mouvements kettlebell ────────────────────────────────────────────
+const KETTLEBELL_IDS = new Set([
+  "kb_swing",
+  "kb_clean",
+  "kb_snatch",
+  "kb_cj",
+  "kb_thruster",
+  "kb_lunge",
+  "kb_push_press",
+]);
+
 // ─── Types de filtre ──────────────────────────────────────────────────────────
-type FilterKey = Category | "all" | "strongman";
+type FilterKey = Category | "all" | "strongman" | "kettlebell";
 
 interface FilterOption {
   key: FilterKey;
@@ -42,6 +53,7 @@ const FILTER_OPTIONS: FilterOption[] = [
   { key: "hyrox", label: "Hyrox" },
   { key: "core", label: "Core" },
   { key: "strongman", label: "Strongman" },
+  { key: "kettlebell", label: "Kettlebell" },
 ];
 
 // ─── Traductions ──────────────────────────────────────────────────────────────
@@ -408,10 +420,16 @@ export function MovementsCatalog() {
     if (selectedCategory === "strongman") {
       return MOVEMENTS.filter((m) => STRONGMAN_IDS.has(m.id));
     }
-    // For weightlifting filter, exclude strongman IDs
+    if (selectedCategory === "kettlebell") {
+      return MOVEMENTS.filter((m) => KETTLEBELL_IDS.has(m.id));
+    }
+    // For weightlifting filter, exclude strongman and kettlebell IDs
     if (selectedCategory === "weightlifting") {
       return MOVEMENTS.filter(
-        (m) => m.category === "weightlifting" && !STRONGMAN_IDS.has(m.id)
+        (m) =>
+          m.category === "weightlifting" &&
+          !STRONGMAN_IDS.has(m.id) &&
+          !KETTLEBELL_IDS.has(m.id)
       );
     }
     return MOVEMENTS.filter((m) => m.category === selectedCategory);
