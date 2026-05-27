@@ -1103,6 +1103,112 @@ export const MOVEMENTS: MovementDef[] = [
     typicalLoad: 0.7,
     secondsPerRep: 12,
   },
+  {
+    id: "husafell_carry",
+    name: "Husafell Carry",
+    aliases: re(
+      "husafell\\s*carry",
+      "husafell\\s*stone",
+      "husafell\\s*walk",
+      "husafell",
+      "port[ée]\\s*husafell",
+      "pierre\\s*husafell"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["force_max", "gainage", "vo2max"],
+    energetics: { atp_pcr: 0.35, glycolytic: 0.45, oxidative: 0.2 },
+    typicalLoad: 0.85,
+    secondsPerRep: 25,
+  },
+  {
+    id: "conans_wheel",
+    name: "Conan's Wheel",
+    aliases: re(
+      "conan'?s?\\s*wheel",
+      "conan\\s*carry",
+      "roue\\s*de\\s*conan",
+      "conan'?s?\\s*walk"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["force_max", "gainage", "lactique"],
+    energetics: { atp_pcr: 0.4, glycolytic: 0.5, oxidative: 0.1 },
+    typicalLoad: 0.9,
+    secondsPerRep: 30,
+  },
+  {
+    id: "keg_clean_press",
+    name: "Keg Clean & Press",
+    aliases: re(
+      "keg\\s*clean(\\s*(and|&|et)\\s*press)?",
+      "keg\\s*press",
+      "keg\\s*lift",
+      "keg\\s*toss",
+      "keg\\s*overhead",
+      "f[uû]t\\s*clean",
+      "f[uû]t\\s*press",
+      "\u00e9paul[ée]-?jet[ée]?\\s*au\\s*keg"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["puissance", "endurance_force", "skill", "gainage"],
+    energetics: { atp_pcr: 0.7, glycolytic: 0.25, oxidative: 0.05 },
+    typicalLoad: 0.75,
+    secondsPerRep: 8,
+  },
+  {
+    id: "sandbag_over_yoke",
+    name: "Sandbag Over Yoke / Over Bar",
+    aliases: re(
+      "sandbag\\s*over\\s*yoke",
+      "sandbag\\s*over\\s*the\\s*yoke",
+      "bag\\s*over\\s*yoke",
+      "sandbag\\s*toss",
+      "sandbag\\s*throw",
+      "sac\\s*de\\s*sable\\s*par[- ]dessus\\s*yoke",
+      "sac\\s*de\\s*sable\\s*over\\s*bar"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "puissance",
+    secondaryCapacities: ["force_max", "endurance_force", "gainage"],
+    energetics: { atp_pcr: 0.55, glycolytic: 0.4, oxidative: 0.05 },
+    typicalLoad: 0.7,
+    secondsPerRep: 10,
+  },
+  {
+    id: "duck_walk",
+    name: "Duck Walk",
+    aliases: re(
+      "duck\\s*walk",
+      "duck\\s*carry",
+      "marche\\s*du\\s*canard",
+      "farmer\\s*duck\\s*walk"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "endurance_force",
+    secondaryCapacities: ["force_max", "gainage", "lactique"],
+    energetics: { atp_pcr: 0.4, glycolytic: 0.45, oxidative: 0.15 },
+    typicalLoad: 0.75,
+    secondsPerRep: 18,
+  },
+  {
+    id: "frame_carry",
+    name: "Frame Carry",
+    aliases: re(
+      "frame\\s*carry",
+      "frame\\s*walk",
+      "hex\\s*frame\\s*carry",
+      "frame\\s*deadlift\\s*carry",
+      "port[ée]\\s*sur\\s*frame"
+    ),
+    category: "weightlifting",
+    dominantCapacity: "force_max",
+    secondaryCapacities: ["endurance_force", "gainage"],
+    energetics: { atp_pcr: 0.55, glycolytic: 0.35, oxidative: 0.1 },
+    typicalLoad: 0.9,
+    secondsPerRep: 22,
+  },
   // ─── KETTLEBELL ──────────────────────────────────────────────────────────────
   // Mouvements unilatéraux ou bilatéraux à la kettlebell. Dominante puissance /
   // endurance de force selon la durée du set. Filière glycolytique prépondérante

@@ -24,6 +24,12 @@ const STRONGMAN_IDS = new Set([
   "sled_heavy",
   "axle_deadlift",
   "sandbag_carry",
+  "husafell_carry",
+  "conans_wheel",
+  "keg_clean_press",
+  "sandbag_over_yoke",
+  "duck_walk",
+  "frame_carry",
 ]);
 
 // ─── IDs des mouvements kettlebell ────────────────────────────────────────────
