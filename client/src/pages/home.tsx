@@ -11,6 +11,8 @@ import {
 import {
   analyzeWod,
   capacityLabel,
+  deathByTotalReps,
+  estimateDeathByCap,
   EXAMPLES,
   type Capacity,
   type WodAnalysis,
@@ -443,7 +445,7 @@ function EmptyState() {
 }
 
 export default function Home() {
-  const { currentRawText, setText, textareaRef } = useAnalyzerStore();
+  const { currentRawText, setText, textareaRef, deathByCap, setDeathByCap } = useAnalyzerStore();
   const { customMovements, addCustomMovement } = useCustomMovements();
   const initialText = currentRawText || EXAMPLES.fran.text;
   const [text, setLocalText] = useState<string>(initialText);
@@ -668,7 +670,11 @@ export default function Home() {
                     icon={<Timer className="w-3.5 h-3.5" />}
                     label="Format"
                     value={analysis.formatLabel}
-                    hint={analysis.movements.length + " mouvements"}
+                    hint={
+                      analysis.format === "death_by" && analysis.movements.length > 0
+                        ? `${analysis.movements[0].reps} reps cumulées`
+                        : analysis.movements.length + " mouvements"
+                    }
                   />
                   <MetaStat
                     icon={<Activity className="w-3.5 h-3.5" />}
@@ -693,6 +699,88 @@ export default function Home() {
                     hint={`${Math.round(analysis.energetics[analysis.dominantEnergetic])}%`}
                   />
                 </div>
+
+                {/* Bandeau Death by : slider de point de rupture */}
+                {analysis.format === "death_by" && analysis.movements.length > 0 && (() => {
+                  const mv = analysis.movements[0].movement;
+                  const defaultCap = estimateDeathByCap(mv);
+                  const currentCap = deathByCap ?? defaultCap;
+                  const totalReps = deathByTotalReps(currentCap);
+                  return (
+                    <Card
+                      className="p-5 border-card-border"
+                      style={{
+                        background: `${ORANGE}0F`,
+                        borderColor: `${ORANGE}44`,
+                      }}
+                    >
+                      <div className="flex items-start gap-3 mb-3">
+                        <div
+                          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: `${ORANGE}1A`, border: `1px solid ${ORANGE}33` }}
+                        >
+                          <Timer className="w-4 h-4" style={{ color: ORANGE }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                            Format Death by détecté — {mv.name}
+                          </div>
+                          <p className="text-sm leading-relaxed text-foreground">
+                            EMOM progressif : <strong>+1 rep</strong> par minute jusqu'à ne plus pouvoir terminer la série dans la minute.
+                            Le point de rupture est estimé selon le profil du mouvement, ajustable ci-dessous.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                        <div className="px-3 py-2 rounded-md bg-card border border-card-border">
+                          <div className="text-xs text-muted-foreground">Point de rupture</div>
+                          <div className="text-lg font-semibold" style={{ color: ORANGE }}>
+                            {currentCap} min
+                          </div>
+                        </div>
+                        <div className="px-3 py-2 rounded-md bg-card border border-card-border">
+                          <div className="text-xs text-muted-foreground">Reps cumulées</div>
+                          <div className="text-lg font-semibold">{totalReps}</div>
+                          <div className="text-[10px] text-muted-foreground">1 + 2 + … + {currentCap}</div>
+                        </div>
+                        <div className="px-3 py-2 rounded-md bg-card border border-card-border">
+                          <div className="text-xs text-muted-foreground">Estimation par défaut</div>
+                          <div className="text-lg font-semibold text-muted-foreground">{defaultCap} min</div>
+                          {deathByCap !== null && deathByCap !== defaultCap && (
+                            <button
+                              type="button"
+                              onClick={() => setDeathByCap(null)}
+                              className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                              data-testid="button-deathby-reset"
+                            >
+                              Réinitialiser
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Ajuster le point de rupture</span>
+                          <span className="text-muted-foreground">3 – 25 min</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={3}
+                          max={25}
+                          step={1}
+                          value={currentCap}
+                          onChange={(e) => setDeathByCap(parseInt(e.target.value, 10))}
+                          className="w-full accent-[hsl(20_100%_60%)]"
+                          style={{ accentColor: ORANGE }}
+                          data-testid="slider-deathby-cap"
+                          aria-label="Point de rupture estimé en minutes"
+                        />
+                      </div>
+                    </Card>
+                  );
+                })()}
 
                 {/* Synthèse */}
                 <Card className="p-5 bg-card border-card-border">

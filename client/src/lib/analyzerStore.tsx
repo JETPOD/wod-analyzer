@@ -17,23 +17,29 @@ interface AnalyzerStoreValue {
   textareaRef: RefObject<HTMLTextAreaElement>;
   /** Insère du texte à la position courante du caret dans le textarea */
   insertMovement: (text: string) => void;
+  /** Override du point de rupture pour un format Death by (en minutes). null = estimation auto */
+  deathByCap: number | null;
+  setDeathByCap: (cap: number | null) => void;
 }
 
 const AnalyzerStoreContext = createContext<AnalyzerStoreValue | null>(null);
 
 export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
   const [currentRawText, setCurrentRawText] = useState<string>("");
+  const [deathByCap, setDeathByCap] = useState<number | null>(null);
   const { customMovements } = useCustomMovements();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const currentAnalysis = useMemo<WodAnalysis | null>(() => {
     if (!currentRawText.trim()) return null;
     try {
-      return analyzeWod(currentRawText, customMovements);
+      return analyzeWod(currentRawText, customMovements, {
+        deathByCapOverride: deathByCap ?? undefined,
+      });
     } catch {
       return null;
     }
-  }, [currentRawText, customMovements]);
+  }, [currentRawText, customMovements, deathByCap]);
 
   const setText = useCallback((text: string) => {
     setCurrentRawText(text);
@@ -43,7 +49,16 @@ export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
     setCurrentRawText(text);
   }, []);
 
-  const clear = useCallback(() => setCurrentRawText(""), []);
+  const clear = useCallback(() => {
+    setCurrentRawText("");
+    setDeathByCap(null);
+  }, []);
+
+  // Reset automatique du cap quand le format change vers autre chose que death_by
+  // (évite de garder un cap obsolète si l'utilisateur passe à un AMRAP)
+  if (deathByCap !== null && currentAnalysis && currentAnalysis.format !== "death_by") {
+    setTimeout(() => setDeathByCap(null), 0);
+  }
 
   const insertMovement = useCallback(
     (insertText: string) => {
@@ -83,8 +98,18 @@ export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AnalyzerStoreValue>(
-    () => ({ currentRawText, currentAnalysis, setText, loadAndAnalyze, clear, textareaRef, insertMovement }),
-    [currentRawText, currentAnalysis, setText, loadAndAnalyze, clear, textareaRef, insertMovement]
+    () => ({
+      currentRawText,
+      currentAnalysis,
+      setText,
+      loadAndAnalyze,
+      clear,
+      textareaRef,
+      insertMovement,
+      deathByCap,
+      setDeathByCap,
+    }),
+    [currentRawText, currentAnalysis, setText, loadAndAnalyze, clear, textareaRef, insertMovement, deathByCap]
   );
 
   return (

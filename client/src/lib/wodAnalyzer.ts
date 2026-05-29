@@ -14,6 +14,7 @@ export type WodFormat =
   | "intervals"
   | "strength"
   | "hyrox"
+  | "death_by"
   | "unknown";
 
 export interface DetectedMovement {
@@ -88,6 +89,13 @@ interface FormatDetect {
 
 function detectFormat(text: string): FormatDetect {
   const t = text.toLowerCase();
+  // Death by (EMOM progressif : +1 rep / minute jusqu'à échec)
+  // On capture ici uniquement le format. Le point de rupture par défaut sera
+  // déterminé par estimateDeathByCap(mvt) une fois le mouvement détecté.
+  // Cap initial : 10 minutes (val typique intermédiaire) → raffiné dans analyzeWod.
+  if (/\bdeath\s*by\b/.test(t)) {
+    return { format: "death_by", totalSec: 10 * 60, rounds: null, repsScheme: null };
+  }
   // AMRAP
   let m = t.match(/amrap[^0-9]{0,8}(\d+)\s*(min|m\b|minutes?)?/);
   if (m) {
@@ -179,8 +187,42 @@ const FORMAT_LABELS: Record<WodFormat, string> = {
   intervals: "Intervalles",
   strength: "Strength (séries / reps)",
   hyrox: "Hyrox",
+  death_by: "Death by (EMOM progressif)",
   unknown: "Format libre",
 };
+
+// ─── DEATH BY ────────────────────────────────────────────────────────────────
+// Estimation du point de rupture en minutes pour un athlète intermédiaire,
+// selon le profil du mouvement. Permet de calculer reps totales triangulaires
+// (1+2+…+n) et la durée du WOD sans LLM.
+export function estimateDeathByCap(mv: MovementDef): number {
+  // Cardio léger / ouvert (sprints courts, jacks) → 14 min
+  if (mv.isCardio && mv.secondsPerRep <= 1.5) return 14;
+  // Cardio modéré (row, bike, ski en mètres ou calories) → 12 min
+  if (mv.isCardio) return 12;
+  // Strongman / odd objects → 7 min (charges très lourdes, rupture rapide)
+  if (mv.typicalLoad >= 0.85 && mv.category === "weightlifting") return 7;
+  // Haltérophilie lourde (clean, snatch, deadlift) → 8 min
+  if (mv.category === "weightlifting" && mv.typicalLoad >= 0.7) return 8;
+  // Haltérophilie légère (wall ball, KB swing, thruster léger) → 11 min
+  if (mv.category === "weightlifting") return 11;
+  // Gym avancée stricte (strict pull-up, strict HSPU, muscle-up…) :
+  // dominante force_max + secondsPerRep ≥ 4 → 7 min
+  if (mv.category === "gymnastics" && mv.dominantCapacity === "force_max" && mv.secondsPerRep >= 4) return 7;
+  // Gym intermédiaire (pull-up, kipping HSPU, C2B, T2B) → 9 min
+  if (mv.category === "gymnastics" && mv.secondsPerRep >= 3) return 9;
+  // Gym basique (push-up, sit-up, burpee, air squat) → 12 min
+  if (mv.category === "gymnastics") return 12;
+  // Core / gainage → 11 min
+  if (mv.category === "core") return 11;
+  // Default
+  return 10;
+}
+
+// Reps totales pour un point de rupture n : 1 + 2 + … + n = n(n+1)/2
+export function deathByTotalReps(cap: number): number {
+  return (cap * (cap + 1)) / 2;
+}
 
 // Détecte tous les mouvements du texte, en supprimant les chevauchements pour
 // éviter qu'une ligne soit comptée à la fois Swing et Russian Swing par ex.
@@ -192,7 +234,7 @@ interface RawMatch {
   lineStart: number;
 }
 
-function findAllMatches(text: string): RawMatch[] {
+function findAllMatches(text: string, allMovements: MovementDef[] = MOVEMENTS): RawMatch[] {
   const lines = text.split(/\n/);
   const all: RawMatch[] = [];
   let cursor = 0;
@@ -200,7 +242,7 @@ function findAllMatches(text: string): RawMatch[] {
     const lineStart = cursor;
     cursor += line.length + 1;
     if (!line.trim()) continue;
-    for (const mv of MOVEMENTS) {
+    for (const mv of allMovements) {
       for (const rx of mv.aliases) {
         const r = new RegExp(rx.source, rx.flags + (rx.flags.includes("g") ? "" : "g"));
         let m: RegExpExecArray | null;
@@ -366,6 +408,20 @@ function expandWithScheme(
     }
   }
 
+  // Death by : 1 + 2 + ... + n reps, n = point de rupture estimé.
+  // On garde le premier mouvement détecté (version 1 mouvement) et on lui assigne
+  // les reps totales triangulaires + une durée = n minutes (cadre EMOM).
+  if (fmt.format === "death_by" && detected.length > 0) {
+    const mainMv = detected[0];
+    const cap = estimateDeathByCap(mainMv.movement);
+    const totalReps = deathByTotalReps(cap);
+    mainMv.reps = totalReps;
+    mainMv.estimatedSeconds = cap * 60; // durée = nombre de minutes tenues
+    fmt.totalSec = cap * 60; // synchronise la durée globale du WOD
+    // On supprime les autres matches éventuels (version 1 mouvement)
+    return [mainMv];
+  }
+
   return detected;
 }
 
@@ -469,6 +525,15 @@ function computeScores(
   }
   if (format === "emom") {
     caps.lactique += 0.3;
+  }
+  if (format === "death_by") {
+    // Death by : démarrage faible volume (ATP-PCr) puis bascule glyco/lactique
+    // car les minutes finales sont déclenchées à fond contre la montre.
+    caps.lactique += 0.7;
+    caps.endurance_force += 0.3;
+    // Léger renfort puissance pour les premières minutes courtes
+    caps.puissance += 0.2;
+    energy.glycolytic += 0.15;
   }
   if (format === "strength") {
     caps.force_max += 0.5;
@@ -574,11 +639,30 @@ function buildSummary(a: WodAnalysis): string {
 // API PUBLIQUE
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function analyzeWod(rawText: string): WodAnalysis {
+export function analyzeWod(
+  rawText: string,
+  extraMovements: MovementDef[] = [],
+  options: { deathByCapOverride?: number } = {}
+): WodAnalysis {
   const text = normalize(rawText);
   const fmt = detectFormat(text);
-  const matches = findAllMatches(text);
+  const allMovements = extraMovements.length > 0 ? [...MOVEMENTS, ...extraMovements] : MOVEMENTS;
+  const matches = findAllMatches(text, allMovements);
   const detected = expandWithScheme(matches, fmt);
+
+  // Override Death by si l'utilisateur a fixé un cap explicite via le slider UI
+  if (
+    fmt.format === "death_by" &&
+    detected.length > 0 &&
+    typeof options.deathByCapOverride === "number" &&
+    options.deathByCapOverride > 0
+  ) {
+    const cap = Math.round(options.deathByCapOverride);
+    detected[0].reps = deathByTotalReps(cap);
+    detected[0].estimatedSeconds = cap * 60;
+    fmt.totalSec = cap * 60;
+  }
+
   const duration = computeDuration(detected, fmt.totalSec, fmt.format);
   const { energetics, capacities } = computeScores(detected, duration, fmt.format);
 
@@ -693,5 +777,14 @@ Repos 3 min entre séries`,
     text: `Tabata Row
 8 rounds : 20s max / 10s repos
 Score = total calories`,
+  },
+  death_by_burpee: {
+    name: "Death by Burpee",
+    desc: "EMOM progressif jusqu'à échec",
+    text: `Death by Burpee
+Min 1 : 1 burpee
+Min 2 : 2 burpees
+Min 3 : 3 burpees
+... jusqu'à ne plus pouvoir terminer la série dans la minute.`,
   },
 };
