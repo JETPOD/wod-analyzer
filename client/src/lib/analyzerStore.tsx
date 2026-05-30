@@ -20,6 +20,9 @@ interface AnalyzerStoreValue {
   /** Override du point de rupture pour un format Death by (en minutes). null = estimation auto */
   deathByCap: number | null;
   setDeathByCap: (cap: number | null) => void;
+  /** Override du nombre de rounds pour un format EXMOM. null = valeur détectée par parser */
+  exmomRounds: number | null;
+  setExmomRounds: (rounds: number | null) => void;
 }
 
 const AnalyzerStoreContext = createContext<AnalyzerStoreValue | null>(null);
@@ -27,6 +30,7 @@ const AnalyzerStoreContext = createContext<AnalyzerStoreValue | null>(null);
 export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
   const [currentRawText, setCurrentRawText] = useState<string>("");
   const [deathByCap, setDeathByCap] = useState<number | null>(null);
+  const [exmomRounds, setExmomRounds] = useState<number | null>(null);
   const { customMovements } = useCustomMovements();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -35,11 +39,12 @@ export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
     try {
       return analyzeWod(currentRawText, customMovements, {
         deathByCapOverride: deathByCap ?? undefined,
+        exmomRoundsOverride: exmomRounds ?? undefined,
       });
     } catch {
       return null;
     }
-  }, [currentRawText, customMovements, deathByCap]);
+  }, [currentRawText, customMovements, deathByCap, exmomRounds]);
 
   const setText = useCallback((text: string) => {
     setCurrentRawText(text);
@@ -52,12 +57,17 @@ export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
   const clear = useCallback(() => {
     setCurrentRawText("");
     setDeathByCap(null);
+    setExmomRounds(null);
   }, []);
 
   // Reset automatique du cap quand le format change vers autre chose que death_by
   // (évite de garder un cap obsolète si l'utilisateur passe à un AMRAP)
   if (deathByCap !== null && currentAnalysis && currentAnalysis.format !== "death_by") {
     setTimeout(() => setDeathByCap(null), 0);
+  }
+  // Idem pour EXMOM
+  if (exmomRounds !== null && currentAnalysis && currentAnalysis.format !== "exmom") {
+    setTimeout(() => setExmomRounds(null), 0);
   }
 
   const insertMovement = useCallback(
@@ -108,8 +118,10 @@ export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
       insertMovement,
       deathByCap,
       setDeathByCap,
+      exmomRounds,
+      setExmomRounds,
     }),
-    [currentRawText, currentAnalysis, setText, loadAndAnalyze, clear, textareaRef, insertMovement, deathByCap]
+    [currentRawText, currentAnalysis, setText, loadAndAnalyze, clear, textareaRef, insertMovement, deathByCap, exmomRounds]
   );
 
   return (

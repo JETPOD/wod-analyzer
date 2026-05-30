@@ -445,7 +445,15 @@ function EmptyState() {
 }
 
 export default function Home() {
-  const { currentRawText, setText, textareaRef, deathByCap, setDeathByCap } = useAnalyzerStore();
+  const {
+    currentRawText,
+    setText,
+    textareaRef,
+    deathByCap,
+    setDeathByCap,
+    exmomRounds,
+    setExmomRounds,
+  } = useAnalyzerStore();
   const { customMovements, addCustomMovement } = useCustomMovements();
   const initialText = currentRawText || EXAMPLES.fran.text;
   const [text, setLocalText] = useState<string>(initialText);
@@ -699,6 +707,97 @@ export default function Home() {
                     hint={`${Math.round(analysis.energetics[analysis.dominantEnergetic])}%`}
                   />
                 </div>
+
+                {/* Bandeau EXMOM : slider du nombre de rounds */}
+                {analysis.format === "exmom" && analysis.exmomWindowMin && analysis.exmomRounds && (() => {
+                  const xMin = analysis.exmomWindowMin!;
+                  const currentRounds = exmomRounds ?? analysis.exmomRounds!;
+                  const totalMin = currentRounds * xMin;
+                  // Reps moyennes par round (somme reps / rounds) pour info
+                  const totalReps = analysis.movements.reduce((s, m) => s + m.reps, 0);
+                  const repsPerRound = currentRounds > 0 ? Math.round(totalReps / currentRounds) : 0;
+                  return (
+                    <Card
+                      className="p-5 border-card-border"
+                      style={{
+                        background: `${CYAN}0F`,
+                        borderColor: `${CYAN}44`,
+                      }}
+                    >
+                      <div className="flex items-start gap-3 mb-3">
+                        <div
+                          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: `${CYAN}1A`, border: `1px solid ${CYAN}33` }}
+                        >
+                          <Timer className="w-4 h-4" style={{ color: CYAN }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                            Format E{xMin}MOM détecté — fenêtre de {xMin} min
+                          </div>
+                          <p className="text-sm leading-relaxed text-foreground">
+                            Toutes les <strong>{xMin} minutes</strong> on lance la série, le temps restant sert de récupération.
+                            Format orienté <strong>force / puissance</strong> grâce à la recharge ATP-PCr entre rounds.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div className="px-3 py-2 rounded-md bg-card border border-card-border">
+                          <div className="text-xs text-muted-foreground">Rounds</div>
+                          <div className="text-lg font-semibold" style={{ color: CYAN }}>
+                            {currentRounds}
+                          </div>
+                        </div>
+                        <div className="px-3 py-2 rounded-md bg-card border border-card-border">
+                          <div className="text-xs text-muted-foreground">Durée totale</div>
+                          <div className="text-lg font-semibold">{totalMin} min</div>
+                          <div className="text-[10px] text-muted-foreground">{currentRounds} × {xMin} min</div>
+                        </div>
+                        <div className="px-3 py-2 rounded-md bg-card border border-card-border">
+                          <div className="text-xs text-muted-foreground">Reps / round</div>
+                          <div className="text-lg font-semibold">{repsPerRound}</div>
+                          <div className="text-[10px] text-muted-foreground">{totalReps} reps total</div>
+                        </div>
+                        <div className="px-3 py-2 rounded-md bg-card border border-card-border">
+                          <div className="text-xs text-muted-foreground">Repos / round</div>
+                          <div className="text-lg font-semibold text-muted-foreground">
+                            ~{Math.max(0, xMin * 60 - Math.round((analysis.estimatedDurationSec / currentRounds)))}s
+                          </div>
+                          {exmomRounds !== null && exmomRounds !== analysis.exmomRounds && (
+                            <button
+                              type="button"
+                              onClick={() => setExmomRounds(null)}
+                              className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                              data-testid="button-exmom-reset"
+                            >
+                              Réinitialiser
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Ajuster le nombre de rounds</span>
+                          <span className="text-muted-foreground">3 – 20 rounds</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={3}
+                          max={20}
+                          step={1}
+                          value={currentRounds}
+                          onChange={(e) => setExmomRounds(parseInt(e.target.value, 10))}
+                          className="w-full"
+                          style={{ accentColor: CYAN }}
+                          data-testid="slider-exmom-rounds"
+                          aria-label="Nombre de rounds EXMOM"
+                        />
+                      </div>
+                    </Card>
+                  );
+                })()}
 
                 {/* Bandeau Death by : slider de point de rupture */}
                 {analysis.format === "death_by" && analysis.movements.length > 0 && (() => {

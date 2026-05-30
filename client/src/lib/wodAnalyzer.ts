@@ -7,6 +7,7 @@ export type { Capacity, Energetics, MovementDef } from "./movementsDb";
 export type WodFormat =
   | "amrap"
   | "emom"
+  | "exmom"
   | "for_time"
   | "rft"
   | "chipper"
@@ -43,6 +44,9 @@ export interface WodAnalysis {
   dominantEnergetic: keyof WodAnalysis["energetics"];
   topCapacities: Capacity[];
   summary: string;
+  // Paramètres spécifiques EXMOM (uniquement si format === 'exmom')
+  exmomWindowMin?: number | null;
+  exmomRounds?: number | null;
 }
 
 const CAPACITY_LABELS: Record<Capacity, string> = {
@@ -85,6 +89,8 @@ interface FormatDetect {
   totalSec: number | null; // si déductible (AMRAP 20 / EMOM 12 etc.)
   rounds: number | null;
   repsScheme: number[] | null; // ex: 21-15-9 → [21,15,9]
+  /** Fenêtre EXMOM en minutes (2, 3, 4…). Null pour tout autre format. */
+  windowMin?: number | null;
 }
 
 function detectFormat(text: string): FormatDetect {
@@ -104,6 +110,66 @@ function detectFormat(text: string): FormatDetect {
   }
   if (/\bamrap\b/.test(t))
     return { format: "amrap", totalSec: 20 * 60, rounds: null, repsScheme: null };
+
+  // EXMOM (Every X Minutes On the Minute, X >= 2). Doit être testé avant EMOM
+  // pour ne pas être capturé par un EMOM générique. On accepte trois syntaxes :
+  //   1. E2MOM / E3MOM / E4MOM… (sans espace)
+  //   2. Every 2 minutes [on the minute] (EN)
+  //   3. Toutes les 2 minutes (FR)
+  // Après la capture de la fenêtre X, on cherche dans le même texte une durée
+  // totale (« pendant 20 min », « for 20 minutes ») ou un nombre de rounds
+  // (« x 10 rounds »). Si rien n'est trouvé, on retombe sur EXMOM_DEFAULT_ROUNDS.
+  {
+    let xMin: number | null = null;
+    const mE = t.match(/\be\s*(\d+)\s*m(?:in)?\s*om\b/); // E2MOM / E 3 MOM / E4 min OM
+    const mEvery = t.match(/\bevery\s*(\d+)\s*(?:min(?:ute)?s?)\b/); // Every 2 minutes
+    const mToutes = t.match(/\btoutes\s+les\s+(\d+)\s*(?:min(?:utes?)?)\b/); // Toutes les 2 minutes
+    const match = mE || mEvery || mToutes;
+    if (match) {
+      xMin = parseInt(match[1], 10);
+    }
+    // X doit être >= 2 (X=1 retombe sur EMOM classique)
+    if (xMin !== null && xMin >= 2) {
+      // Cherche durée totale explicite : "pendant 20 min", "for 20 min", "20 min total", "20 min\b"
+      // Stratégie : on prend le plus grand nombre suivi de "min" qui n'est PAS la fenêtre xMin
+      const allMins = Array.from(t.matchAll(/(\d+)\s*(?:min(?:ute)?s?|m\b)/g));
+      let totalMin: number | null = null;
+      for (const mm of allMins) {
+        const v = parseInt(mm[1], 10);
+        if (v !== xMin && v > xMin && (totalMin === null || v > totalMin)) {
+          totalMin = v;
+        }
+      }
+      // Cherche un nombre de rounds explicite : "x 10 rounds", "10 tours", "x 8 rds"
+      let rounds: number | null = null;
+      const mRounds = t.match(/x\s*(\d+)\s*(?:rounds?|tours?|rds?|sets?|séries?)/);
+      const mRoundsAlt = t.match(/(\d+)\s*(?:rounds?|tours?|rds?)\b/);
+      if (mRounds) rounds = parseInt(mRounds[1], 10);
+      else if (mRoundsAlt) {
+        const v = parseInt(mRoundsAlt[1], 10);
+        // Ignore si c'est la même valeur que totalMin (évite "20 rounds" confondu avec "20 min")
+        if (v !== totalMin) rounds = v;
+      }
+      // Résolution : si on a totalMin → rounds = totalMin / xMin
+      //               sinon si on a rounds → totalMin = rounds * xMin
+      //               sinon : EXMOM_DEFAULT_ROUNDS
+      if (totalMin !== null) {
+        rounds = Math.max(1, Math.round(totalMin / xMin));
+      } else if (rounds !== null) {
+        totalMin = rounds * xMin;
+      } else {
+        rounds = EXMOM_DEFAULT_ROUNDS;
+        totalMin = rounds * xMin;
+      }
+      return {
+        format: "exmom",
+        totalSec: totalMin * 60,
+        rounds,
+        repsScheme: null,
+        windowMin: xMin,
+      };
+    }
+  }
 
   // EMOM
   m = t.match(/emom[^0-9]{0,8}(\d+)\s*(min|m\b|minutes?)?/);
@@ -180,6 +246,7 @@ function detectFormat(text: string): FormatDetect {
 const FORMAT_LABELS: Record<WodFormat, string> = {
   amrap: "AMRAP",
   emom: "EMOM",
+  exmom: "EXMOM",
   for_time: "For Time",
   rft: "Rounds For Time",
   chipper: "Chipper",
@@ -190,6 +257,9 @@ const FORMAT_LABELS: Record<WodFormat, string> = {
   death_by: "Death by (EMOM progressif)",
   unknown: "Format libre",
 };
+
+// Durée par défaut pour un EXMOM sans durée/rounds explicites (en rounds)
+export const EXMOM_DEFAULT_ROUNDS = 10;
 
 // ─── DEATH BY ────────────────────────────────────────────────────────────────
 // Estimation du point de rupture en minutes pour un athlète intermédiaire,
@@ -408,6 +478,19 @@ function expandWithScheme(
     }
   }
 
+  // EXMOM : reps par round × nb de rounds. Tous les mouvements détectés sont
+  // supposés exécutés à chaque round (ex : E3MOM 18 min : 5 DL + 10 burpees).
+  // estimatedSeconds = temps de travail réel (reps × secondsPerRep), pas la
+  // durée bloquée — le repos est implicite dans le format.
+  if (fmt.format === "exmom" && fmt.rounds !== null) {
+    const rounds = fmt.rounds;
+    for (const d of detected) {
+      d.reps = d.reps * rounds;
+      if (d.distanceM) d.distanceM = d.distanceM * rounds;
+      d.estimatedSeconds = d.reps * d.movement.secondsPerRep;
+    }
+  }
+
   // Death by : 1 + 2 + ... + n reps, n = point de rupture estimé.
   // On garde le premier mouvement détecté (version 1 mouvement) et on lui assigne
   // les reps totales triangulaires + une durée = n minutes (cadre EMOM).
@@ -526,6 +609,16 @@ function computeScores(
   if (format === "emom") {
     caps.lactique += 0.3;
   }
+  if (format === "exmom") {
+    // EXMOM (X >= 2 min) : la fenêtre permet une récupération quasi complète,
+    // donc resollicitation de la filière ATP-PCr → format force / puissance.
+    caps.force_max += 0.5;
+    caps.puissance += 0.4;
+    caps.skill += 0.2;
+    energy.atp_pcr += 0.25;
+    energy.glycolytic *= 0.7;
+    energy.oxidative *= 0.7;
+  }
   if (format === "death_by") {
     // Death by : démarrage faible volume (ATP-PCr) puis bascule glyco/lactique
     // car les minutes finales sont déclenchées à fond contre la montre.
@@ -642,12 +735,25 @@ function buildSummary(a: WodAnalysis): string {
 export function analyzeWod(
   rawText: string,
   extraMovements: MovementDef[] = [],
-  options: { deathByCapOverride?: number } = {}
+  options: { deathByCapOverride?: number; exmomRoundsOverride?: number } = {}
 ): WodAnalysis {
   const text = normalize(rawText);
   const fmt = detectFormat(text);
   const allMovements = extraMovements.length > 0 ? [...MOVEMENTS, ...extraMovements] : MOVEMENTS;
   const matches = findAllMatches(text, allMovements);
+
+  // Override EXMOM rounds AVANT expandWithScheme (sinon les reps sont déjà multipliées)
+  if (
+    fmt.format === "exmom" &&
+    fmt.windowMin &&
+    typeof options.exmomRoundsOverride === "number" &&
+    options.exmomRoundsOverride > 0
+  ) {
+    const newRounds = Math.round(options.exmomRoundsOverride);
+    fmt.rounds = newRounds;
+    fmt.totalSec = newRounds * fmt.windowMin * 60;
+  }
+
   const detected = expandWithScheme(matches, fmt);
 
   // Override Death by si l'utilisateur a fixé un cap explicite via le slider UI
@@ -690,6 +796,8 @@ export function analyzeWod(
     dominantEnergetic,
     topCapacities,
     summary: "",
+    exmomWindowMin: fmt.format === "exmom" ? fmt.windowMin ?? null : null,
+    exmomRounds: fmt.format === "exmom" ? fmt.rounds ?? null : null,
   };
   analysis.summary = buildSummary(analysis);
   return analysis;
@@ -786,5 +894,11 @@ Min 1 : 1 burpee
 Min 2 : 2 burpees
 Min 3 : 3 burpees
 ... jusqu'à ne plus pouvoir terminer la série dans la minute.`,
+  },
+  e2mom_cj: {
+    name: "E2MOM Clean & Jerk",
+    desc: "Force / puissance avec récup entre rounds",
+    text: `E2MOM 20 min
+3 clean and jerk à 70%`,
   },
 };
