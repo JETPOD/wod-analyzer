@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { AppHeader } from "@/components/AppHeader";
 import { useHistory } from "@/lib/HistoryContext";
 import { useAnalyzerStore } from "@/lib/analyzerStore";
+import { useBodyweight } from "@/lib/BodyweightContext";
 import { useCustomMovements } from "@/lib/CustomMovementsContext";
 import { computeRecovery } from "@/lib/recovery";
 import { exportAnalysisPdf } from "@/lib/pdfExport";
@@ -47,6 +48,9 @@ import {
   Loader2,
   PlusCircle,
   X,
+  Pencil,
+  Check,
+  RotateCcw,
 } from "lucide-react";
 
 const ORANGE = "#FF6B35";
@@ -258,14 +262,58 @@ interface MovementBreakdownProps {
 
 function MovementBreakdown({ analysis, wodText, allMovements, onOpenDialog }: MovementBreakdownProps) {
   const { customMovements, removeCustomMovement, clearCustomMovements } = useCustomMovements();
+  const { repsOverrides, setRepsOverride, clearRepsOverride, clearAllRepsOverrides } = useAnalyzerStore();
+  const [editingMovement, setEditingMovement] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
 
   const candidates = useMemo(
     () => detectCandidates(wodText, allMovements),
     [wodText, allMovements]
   );
 
+  const hasAnyOverride = Object.keys(repsOverrides).length > 0;
+
+  const startEditing = (movementName: string, currentReps: number) => {
+    setEditingMovement(movementName);
+    setEditValue(String(currentReps));
+  };
+
+  const commitEdit = (movementName: string) => {
+    const n = parseInt(editValue, 10);
+    if (!Number.isNaN(n) && n >= 0 && n <= 9999) {
+      setRepsOverride(movementName, n);
+    }
+    setEditingMovement(null);
+    setEditValue("");
+  };
+
+  const cancelEdit = () => {
+    setEditingMovement(null);
+    setEditValue("");
+  };
+
   return (
     <div className="space-y-3">
+      {/* Bandeau info édition manuelle */}
+      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <Pencil className="w-3 h-3 opacity-60" />
+          Cliquez sur les reps pour les corriger manuellement
+        </span>
+        {hasAnyOverride && (
+          <button
+            type="button"
+            onClick={clearAllRepsOverrides}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+            title="Rétablir toutes les valeurs détectées"
+            data-testid="button-reset-all-reps"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Réinitialiser
+          </button>
+        )}
+      </div>
+
       {/* Liste mouvements détectés */}
       {analysis.movements.length === 0 ? (
         <div className="text-sm text-muted-foreground py-8 text-center">
@@ -293,11 +341,88 @@ function MovementBreakdown({ analysis, wodText, allMovements, onOpenDialog }: Mo
                       : "Hyrox"}
                   </Badge>
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                  {m.distanceM ? `${Math.round(m.distanceM)}m` : `${m.reps} reps`}
-                  {m.loadKg ? ` · ${Math.round(m.loadKg)}kg` : ""}
-                  {m.loadPctRm ? ` · ${Math.round(m.loadPctRm * 100)}%RM` : ""}
-                  {` · ~${Math.round(m.estimatedSeconds)}s`}
+                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
+                  {m.distanceM ? (
+                    <span>{Math.round(m.distanceM)}m</span>
+                  ) : editingMovement === m.movement.name ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={9999}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitEdit(m.movement.name);
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelEdit();
+                          }
+                        }}
+                        autoFocus
+                        className="h-6 w-16 px-1.5 py-0 text-xs"
+                        data-testid={`input-reps-${m.movement.name}`}
+                      />
+                      <span>reps</span>
+                      <button
+                        type="button"
+                        onClick={() => commitEdit(m.movement.name)}
+                        className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-secondary text-emerald-500"
+                        aria-label="Valider"
+                        data-testid={`button-commit-reps-${m.movement.name}`}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-secondary text-muted-foreground"
+                        aria-label="Annuler"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startEditing(m.movement.name, m.reps)}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-secondary/60 transition-colors ${
+                        m.repsOverridden ? "text-orange-400 font-medium" : ""
+                      }`}
+                      title="Modifier le nombre de répétitions"
+                      data-testid={`button-edit-reps-${m.movement.name}`}
+                      style={m.repsOverridden ? { color: ORANGE } : undefined}
+                    >
+                      <span>{m.reps} reps</span>
+                      <Pencil className="w-3 h-3 opacity-60" />
+                      {m.repsOverridden && (
+                        <span className="text-[9px] uppercase tracking-wider opacity-80">manuel</span>
+                      )}
+                    </button>
+                  )}
+                  {m.repsOverridden && editingMovement !== m.movement.name && (
+                    <button
+                      type="button"
+                      onClick={() => clearRepsOverride(m.movement.name)}
+                      className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-secondary text-muted-foreground"
+                      title="Rétablir la valeur détectée"
+                      aria-label="Rétablir la valeur détectée"
+                      data-testid={`button-reset-reps-${m.movement.name}`}
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  )}
+                  {m.loadKg ? <span>· {Math.round(m.loadKg)}kg</span> : null}
+                  {m.loadPctBw !== undefined ? <span>· {Math.round(m.loadPctBw * 100)}%BW</span> : null}
+                  {m.loadPctRm !== undefined ? (
+                    <span>· {Math.round(m.loadPctRm * 100)}%RM</span>
+                  ) : m.loadPctRmEstimated !== undefined ? (
+                    <span>· ~{Math.round(m.loadPctRmEstimated * 100)}%RM</span>
+                  ) : null}
+                  <span>· ~{Math.round(m.estimatedSeconds)}s</span>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -454,6 +579,7 @@ export default function Home() {
     exmomRounds,
     setExmomRounds,
   } = useAnalyzerStore();
+  const { bodyweightKg, setBodyweightKg } = useBodyweight();
   const { customMovements, addCustomMovement } = useCustomMovements();
   const initialText = currentRawText || EXAMPLES.fran.text;
   const [text, setLocalText] = useState<string>(initialText);
@@ -571,6 +697,35 @@ export default function Home() {
                 className="mb-2 text-sm"
                 data-testid="input-wod-name"
               />
+              <div className="flex items-center gap-2 mb-2">
+                <label htmlFor="input-bw" className="text-xs text-muted-foreground whitespace-nowrap">
+                  Mon poids
+                </label>
+                <Input
+                  id="input-bw"
+                  type="number"
+                  min={20}
+                  max={300}
+                  step={0.5}
+                  value={bodyweightKg ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    if (v === "") return setBodyweightKg(null);
+                    const n = parseFloat(v);
+                    if (Number.isFinite(n) && n > 20 && n < 300) setBodyweightKg(n);
+                    else if (Number.isFinite(n)) setBodyweightKg(n); // laisse passer transitoire
+                  }}
+                  placeholder="ex: 78"
+                  className="text-sm w-24"
+                  data-testid="input-bodyweight"
+                />
+                <span className="text-xs text-muted-foreground">kg</span>
+                {bodyweightKg && (
+                  <span className="text-[10px] text-muted-foreground ml-auto">
+                    → calcule %BW & %1RM
+                  </span>
+                )}
+              </div>
               <Textarea
                 id="wod-input"
                 data-testid="input-wod"

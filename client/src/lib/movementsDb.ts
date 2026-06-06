@@ -33,6 +33,20 @@ export interface MovementDef {
   secondsPerRep: number;
   // Détectable comme un mouvement cardio monostructurel (distance)?
   isCardio?: boolean;
+  /**
+   * Référence de charge "1RM moyen" en multiple du poids du corps (×BW),
+   * pour un athlète intermédiaire (1-3 ans CrossFit, Rx). Sert à convertir
+   * une charge absolue (kg) en %1RM théorique via : %1RM = loadKg / (bw × ref).
+   *
+   * Sources approximatives (StrengthLevel intermediate moyen H/F) :
+   *   Back squat : 1.5×BW · Front squat : 1.2×BW · Deadlift : 1.8×BW
+   *   Clean : 1.0×BW · Snatch : 0.75×BW · Press : 0.65×BW
+   *   Bench : 1.0×BW · KB swing : 0.45×BW · Wall ball : 0.13×BW (♂9kg/♀6kg)
+   *
+   * Si non défini : 0 (pas de calibration BW possible — mouvements gym au poids
+   * du corps, cardio, core, où la charge externe n'est pas pertinente).
+   */
+  loadRatioReference?: number;
 }
 
 // helper to build aliases (case-insensitive whole word matching done by parser)
@@ -52,6 +66,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.85,
     secondsPerRep: 6,
+    loadRatioReference: 1.5,
   },
   {
     id: "front_squat",
@@ -63,6 +78,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.8, glycolytic: 0.2, oxidative: 0 },
     typicalLoad: 0.75,
     secondsPerRep: 5,
+    loadRatioReference: 1.2,
   },
   {
     id: "overhead_squat",
@@ -74,6 +90,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.75, glycolytic: 0.25, oxidative: 0 },
     typicalLoad: 0.55,
     secondsPerRep: 5,
+    loadRatioReference: 0.85,
   },
   {
     id: "deadlift",
@@ -85,6 +102,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.85,
     secondsPerRep: 5,
+    loadRatioReference: 1.8,
   },
   {
     id: "sumo_dl",
@@ -96,6 +114,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.55, glycolytic: 0.4, oxidative: 0.05 },
     typicalLoad: 0.5,
     secondsPerRep: 3,
+    loadRatioReference: 1.0,
   },
   {
     id: "power_clean",
@@ -107,6 +126,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.7,
     secondsPerRep: 4,
+    loadRatioReference: 1.0,
   },
   {
     id: "squat_clean",
@@ -118,6 +138,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.8, glycolytic: 0.2, oxidative: 0 },
     typicalLoad: 0.75,
     secondsPerRep: 5,
+    loadRatioReference: 1.1,
   },
   {
     id: "clean_jerk",
@@ -135,6 +156,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.75,
     secondsPerRep: 5,
+    loadRatioReference: 1.0,
   },
   {
     id: "power_snatch",
@@ -146,6 +168,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.6,
     secondsPerRep: 4,
+    loadRatioReference: 0.75,
   },
   {
     id: "squat_snatch",
@@ -157,6 +180,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.65,
     secondsPerRep: 5,
+    loadRatioReference: 0.8,
   },
   {
     id: "push_press",
@@ -168,6 +192,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.75, glycolytic: 0.25, oxidative: 0 },
     typicalLoad: 0.65,
     secondsPerRep: 3,
+    loadRatioReference: 0.85,
   },
   {
     id: "push_jerk",
@@ -179,6 +204,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.7,
     secondsPerRep: 3,
+    loadRatioReference: 0.95,
   },
   {
     id: "split_jerk",
@@ -190,6 +216,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.9, glycolytic: 0.1, oxidative: 0 },
     typicalLoad: 0.8,
     secondsPerRep: 4,
+    loadRatioReference: 1.0,
   },
   {
     id: "strict_press",
@@ -201,6 +228,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.7,
     secondsPerRep: 4,
+    loadRatioReference: 0.65,
   },
   {
     id: "bench_press",
@@ -212,6 +240,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.9, glycolytic: 0.1, oxidative: 0 },
     typicalLoad: 0.8,
     secondsPerRep: 4,
+    loadRatioReference: 1.0,
   },
   {
     id: "thruster",
@@ -223,6 +252,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.2, glycolytic: 0.65, oxidative: 0.15 },
     typicalLoad: 0.55,
     secondsPerRep: 3,
+    loadRatioReference: 0.85,
   },
   {
     id: "wall_ball",
@@ -234,6 +264,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.1, glycolytic: 0.55, oxidative: 0.35 },
     typicalLoad: 0.3,
     secondsPerRep: 2.5,
+    loadRatioReference: 0.13,
   },
   {
     id: "kb_swing",
@@ -251,6 +282,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.25, glycolytic: 0.55, oxidative: 0.2 },
     typicalLoad: 0.35,
     secondsPerRep: 2,
+    loadRatioReference: 0.45,
   },
   {
     id: "goblet_squat",
@@ -262,6 +294,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.3, glycolytic: 0.5, oxidative: 0.2 },
     typicalLoad: 0.4,
     secondsPerRep: 3,
+    loadRatioReference: 0.4,
   },
   {
     id: "tgu",
@@ -273,6 +306,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.4, glycolytic: 0.3, oxidative: 0.3 },
     typicalLoad: 0.4,
     secondsPerRep: 25,
+    loadRatioReference: 0.4,
   },
   {
     id: "devil_press",
@@ -284,6 +318,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.2, glycolytic: 0.55, oxidative: 0.25 },
     typicalLoad: 0.45,
     secondsPerRep: 6,
+    loadRatioReference: 0.4,
   },
   {
     id: "db_snatch",
@@ -295,6 +330,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.4, glycolytic: 0.5, oxidative: 0.1 },
     typicalLoad: 0.4,
     secondsPerRep: 2.5,
+    loadRatioReference: 0.4,
   },
   {
     id: "db_clean",
@@ -306,6 +342,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.4, glycolytic: 0.5, oxidative: 0.1 },
     typicalLoad: 0.4,
     secondsPerRep: 3,
+    loadRatioReference: 0.4,
   },
 
   // ─── GYMNASTIQUE ──────────────────────────────────────────────────────────
@@ -597,6 +634,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.1, glycolytic: 0.4, oxidative: 0.5 },
     typicalLoad: 0.2,
     secondsPerRep: 2.5,
+    loadRatioReference: 0.3,
   },
 
   // ─── GYMNASTIQUE AVANCÉE ───────────────────────────────────────────────────
@@ -899,6 +937,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.85,
     secondsPerRep: 8,
+    loadRatioReference: 1.3,
   },
   {
     id: "pin_squat",
@@ -914,6 +953,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.9, glycolytic: 0.1, oxidative: 0 },
     typicalLoad: 0.85,
     secondsPerRep: 7,
+    loadRatioReference: 1.35,
   },
   {
     id: "rdl",
@@ -930,6 +970,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.8, glycolytic: 0.2, oxidative: 0 },
     typicalLoad: 0.7,
     secondsPerRep: 5,
+    loadRatioReference: 1.5,
   },
   {
     id: "deficit_dl",
@@ -945,6 +986,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.9, glycolytic: 0.1, oxidative: 0 },
     typicalLoad: 0.8,
     secondsPerRep: 6,
+    loadRatioReference: 1.5,
   },
   {
     id: "good_morning",
@@ -959,6 +1001,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.65, glycolytic: 0.3, oxidative: 0.05 },
     typicalLoad: 0.5,
     secondsPerRep: 4,
+    loadRatioReference: 1.0,
   },
 
   // ─── STRONGMAN ─────────────────────────────────────────────────────────────────────
@@ -982,6 +1025,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.7, glycolytic: 0.3, oxidative: 0 },
     typicalLoad: 0.85,
     secondsPerRep: 12,
+    loadRatioReference: 1.8,
   },
   {
     id: "yoke_walk",
@@ -998,6 +1042,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.55, glycolytic: 0.35, oxidative: 0.1 },
     typicalLoad: 0.9,
     secondsPerRep: 25,
+    loadRatioReference: 2.5,
   },
   {
     id: "log_press",
@@ -1015,6 +1060,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.8, glycolytic: 0.2, oxidative: 0 },
     typicalLoad: 0.8,
     secondsPerRep: 8,
+    loadRatioReference: 1.0,
   },
   {
     id: "farmer_handles_heavy",
@@ -1031,6 +1077,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.55, glycolytic: 0.35, oxidative: 0.1 },
     typicalLoad: 0.85,
     secondsPerRep: 20,
+    loadRatioReference: 2.0,
   },
   {
     id: "tire_flip",
@@ -1047,6 +1094,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.6, glycolytic: 0.35, oxidative: 0.05 },
     typicalLoad: 0.8,
     secondsPerRep: 10,
+    loadRatioReference: 2.5,
   },
   {
     id: "sled_heavy",
@@ -1065,6 +1113,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.3, glycolytic: 0.5, oxidative: 0.2 },
     typicalLoad: 0.8,
     secondsPerRep: 25,
+    loadRatioReference: 1.5,
   },
   {
     id: "axle_deadlift",
@@ -1083,6 +1132,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.85, glycolytic: 0.15, oxidative: 0 },
     typicalLoad: 0.85,
     secondsPerRep: 6,
+    loadRatioReference: 1.7,
   },
   {
     id: "sandbag_carry",
@@ -1102,6 +1152,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.4, glycolytic: 0.45, oxidative: 0.15 },
     typicalLoad: 0.7,
     secondsPerRep: 12,
+    loadRatioReference: 1.2,
   },
   {
     id: "husafell_carry",
@@ -1120,6 +1171,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.35, glycolytic: 0.45, oxidative: 0.2 },
     typicalLoad: 0.85,
     secondsPerRep: 25,
+    loadRatioReference: 1.5,
   },
   {
     id: "conans_wheel",
@@ -1136,6 +1188,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.4, glycolytic: 0.5, oxidative: 0.1 },
     typicalLoad: 0.9,
     secondsPerRep: 30,
+    loadRatioReference: 2.5,
   },
   {
     id: "keg_clean_press",
@@ -1156,6 +1209,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.7, glycolytic: 0.25, oxidative: 0.05 },
     typicalLoad: 0.75,
     secondsPerRep: 8,
+    loadRatioReference: 1.1,
   },
   {
     id: "sandbag_over_yoke",
@@ -1175,6 +1229,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.55, glycolytic: 0.4, oxidative: 0.05 },
     typicalLoad: 0.7,
     secondsPerRep: 10,
+    loadRatioReference: 1.3,
   },
   {
     id: "duck_walk",
@@ -1191,6 +1246,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.4, glycolytic: 0.45, oxidative: 0.15 },
     typicalLoad: 0.75,
     secondsPerRep: 18,
+    loadRatioReference: 1.5,
   },
   {
     id: "frame_carry",
@@ -1208,6 +1264,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.55, glycolytic: 0.35, oxidative: 0.1 },
     typicalLoad: 0.9,
     secondsPerRep: 22,
+    loadRatioReference: 2.2,
   },
   // ─── KETTLEBELL ──────────────────────────────────────────────────────────────
   // Mouvements unilatéraux ou bilatéraux à la kettlebell. Dominante puissance /
@@ -1223,6 +1280,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.55, glycolytic: 0.4, oxidative: 0.05 },
     typicalLoad: 0.5,
     secondsPerRep: 3,
+    loadRatioReference: 0.45,
   },
   {
     id: "kb_snatch",
@@ -1234,6 +1292,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.5, glycolytic: 0.45, oxidative: 0.05 },
     typicalLoad: 0.5,
     secondsPerRep: 3,
+    loadRatioReference: 0.45,
   },
   {
     id: "kb_cj",
@@ -1250,6 +1309,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.45, glycolytic: 0.45, oxidative: 0.1 },
     typicalLoad: 0.5,
     secondsPerRep: 4,
+    loadRatioReference: 0.45,
   },
   {
     id: "kb_thruster",
@@ -1265,6 +1325,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.25, glycolytic: 0.6, oxidative: 0.15 },
     typicalLoad: 0.5,
     secondsPerRep: 3.5,
+    loadRatioReference: 0.45,
   },
   {
     id: "kb_lunge",
@@ -1281,6 +1342,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.15, glycolytic: 0.45, oxidative: 0.4 },
     typicalLoad: 0.4,
     secondsPerRep: 3,
+    loadRatioReference: 0.4,
   },
   {
     id: "kb_push_press",
@@ -1296,6 +1358,7 @@ export const MOVEMENTS: MovementDef[] = [
     energetics: { atp_pcr: 0.6, glycolytic: 0.35, oxidative: 0.05 },
     typicalLoad: 0.55,
     secondsPerRep: 3,
+    loadRatioReference: 0.5,
   },
 
 ];

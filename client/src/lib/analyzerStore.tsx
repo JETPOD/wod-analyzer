@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import type { ReactNode, RefObject } from "react";
 import { analyzeWod, type WodAnalysis } from "./wodAnalyzer";
 import { useCustomMovements } from "./CustomMovementsContext";
+import { useBodyweight } from "./BodyweightContext";
 
 interface AnalyzerStoreValue {
   currentRawText: string;
@@ -23,6 +24,11 @@ interface AnalyzerStoreValue {
   /** Override du nombre de rounds pour un format EXMOM. null = valeur détectée par parser */
   exmomRounds: number | null;
   setExmomRounds: (rounds: number | null) => void;
+  /** Overrides manuels des reps cumulées par mouvement (clé = nom du mouvement, valeur = reps) */
+  repsOverrides: Record<string, number>;
+  setRepsOverride: (movementName: string, reps: number) => void;
+  clearRepsOverride: (movementName: string) => void;
+  clearAllRepsOverrides: () => void;
 }
 
 const AnalyzerStoreContext = createContext<AnalyzerStoreValue | null>(null);
@@ -31,7 +37,9 @@ export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
   const [currentRawText, setCurrentRawText] = useState<string>("");
   const [deathByCap, setDeathByCap] = useState<number | null>(null);
   const [exmomRounds, setExmomRounds] = useState<number | null>(null);
+  const [repsOverrides, setRepsOverrides] = useState<Record<string, number>>({});
   const { customMovements } = useCustomMovements();
+  const { bodyweightKg } = useBodyweight();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const currentAnalysis = useMemo<WodAnalysis | null>(() => {
@@ -40,24 +48,46 @@ export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
       return analyzeWod(currentRawText, customMovements, {
         deathByCapOverride: deathByCap ?? undefined,
         exmomRoundsOverride: exmomRounds ?? undefined,
+        bodyweightKg: bodyweightKg ?? null,
+        repsOverrides: Object.keys(repsOverrides).length > 0 ? repsOverrides : undefined,
       });
     } catch {
       return null;
     }
-  }, [currentRawText, customMovements, deathByCap, exmomRounds]);
+  }, [currentRawText, customMovements, deathByCap, exmomRounds, bodyweightKg, repsOverrides]);
 
   const setText = useCallback((text: string) => {
     setCurrentRawText(text);
+    // Reset des overrides reps quand le texte change : ils sont attachés au WOD courant
+    setRepsOverrides({});
   }, []);
 
   const loadAndAnalyze = useCallback((text: string) => {
     setCurrentRawText(text);
+    setRepsOverrides({});
   }, []);
 
   const clear = useCallback(() => {
     setCurrentRawText("");
     setDeathByCap(null);
     setExmomRounds(null);
+    setRepsOverrides({});
+  }, []);
+
+  const setRepsOverride = useCallback((movementName: string, reps: number) => {
+    setRepsOverrides((prev) => ({ ...prev, [movementName]: Math.max(0, Math.round(reps)) }));
+  }, []);
+
+  const clearRepsOverride = useCallback((movementName: string) => {
+    setRepsOverrides((prev) => {
+      const next = { ...prev };
+      delete next[movementName];
+      return next;
+    });
+  }, []);
+
+  const clearAllRepsOverrides = useCallback(() => {
+    setRepsOverrides({});
   }, []);
 
   // Reset automatique du cap quand le format change vers autre chose que death_by
@@ -120,8 +150,12 @@ export function AnalyzerStoreProvider({ children }: { children: ReactNode }) {
       setDeathByCap,
       exmomRounds,
       setExmomRounds,
+      repsOverrides,
+      setRepsOverride,
+      clearRepsOverride,
+      clearAllRepsOverrides,
     }),
-    [currentRawText, currentAnalysis, setText, loadAndAnalyze, clear, textareaRef, insertMovement, deathByCap, exmomRounds]
+    [currentRawText, currentAnalysis, setText, loadAndAnalyze, clear, textareaRef, insertMovement, deathByCap, exmomRounds, repsOverrides, setRepsOverride, clearRepsOverride, clearAllRepsOverrides]
   );
 
   return (

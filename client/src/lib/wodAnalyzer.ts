@@ -24,8 +24,14 @@ export interface DetectedMovement {
   distanceM?: number; // pour cardio
   loadKg?: number;
   loadPctRm?: number; // si déduit ex: "85%"
+  /** Charge exprimée en multiple du poids du corps, si déduite (ex: 1.2BW → 1.2) */
+  loadPctBw?: number;
+  /** %1RM théorique calculé si bw + loadRatioReference disponibles (0–1.5) */
+  loadPctRmEstimated?: number;
   estimatedSeconds: number; // temps total imputable à ce mvt
   rawLine: string;
+  /** True si les reps ont été corrigées manuellement par l'utilisateur via l'UI */
+  repsOverridden?: boolean;
 }
 
 export interface WodAnalysis {
@@ -187,11 +193,20 @@ function detectFormat(text: string): FormatDetect {
     return { format: "tabata", totalSec: 4 * 60 * Math.max(1, blocks), rounds: 8, repsScheme: null };
   }
 
-  // RFT / Rounds For Time
-  m = t.match(/(\d+)\s*(rft|rounds?\s*for\s*time|tours?\s*chrono|rdf)/);
+  // RFT / Rounds For Time / Rounds génériques / Tours
+  // Accepte : "4 RFT", "4 rounds for time", "4 rounds", "4 rounds of",
+  //          "4 tours chrono", "4 tours", "4 séries", "4 sets"
+  // (le simple "N rounds" ou "N tours" déclenche un RFT — comportement attendu
+  //  par un athlète qui programme un travail multi-rounds linéaire).
+  m = t.match(
+    /(\d+)\s*(rft|rounds?\s*(?:for\s*time|of|de)?|tours?(?:\s*chrono)?|rdf|s[ée]ries?|sets?)\b/
+  );
   if (m) {
-    const rounds = parseInt(m[1], 10);
-    return { format: "rft", totalSec: null, rounds, repsScheme: null };
+    const n = parseInt(m[1], 10);
+    // Filtre : un "5 x 5" déjà capturé plus tard ; ici on accepte 2-30 rounds
+    if (n >= 2 && n <= 30) {
+      return { format: "rft", totalSec: null, rounds: n, repsScheme: null };
+    }
   }
 
   // Strength scheme X x Y (5x5, 3x3, 5x3, 8x2, etc.)
@@ -384,24 +399,45 @@ function extractRepsAndLoad(
     return { reps: 0, distanceM: 500 }; // défaut
   }
 
-  // Reps : nombre juste avant le mouvement (jusqu'à 10 chars avant)
-  const before = line.slice(Math.max(0, matchIndexInLine - 12), matchIndexInLine);
-  const repsMatch = before.match(/(\d{1,3})\s*[x×]?\s*$/);
+  // Reps : nombre juste avant le mouvement (jusqu'à 10 chars avant).
+  // Tolère les mots-outils "x", "×", "de", "of" entre le chiffre et le mouvement.
+  const before = line.slice(Math.max(0, matchIndexInLine - 16), matchIndexInLine);
+  const repsMatch = before.match(
+    /(\d{1,3})\s*(?:[x×]\s*|de\s+|of\s+|reps?\s+)?\s*$/i
+  );
   let reps = repsMatch ? parseInt(repsMatch[1], 10) : 1;
 
-  // Charge en kg ou lb
-  const after = line.slice(matchIndexInLine, matchIndexInLine + 60);
+  // Charge en kg ou lb — cherche dans la fenêtre après le mouvement d'abord
+  // (sinon n'importe où dans la ligne par défaut), pour ne pas confondre la
+  // charge avec un nombre de reps d'un autre mouvement.
+  const after = lower.slice(matchIndexInLine, matchIndexInLine + 60);
   let loadKg: number | undefined;
-  const kg = lower.match(/(\d+(?:[.,]\d+)?)\s*(kg|kilo)/);
-  if (kg) loadKg = parseFloat(kg[1].replace(",", "."));
-  const lb = lower.match(/(\d+(?:[.,]\d+)?)\s*(lb|lbs|pound)/);
-  if (lb && !loadKg) loadKg = parseFloat(lb[1].replace(",", ".")) * 0.4536;
+  let mKg = after.match(/(\d+(?:[.,]\d+)?)\s*(kg|kilo)/);
+  if (!mKg) mKg = lower.match(/(\d+(?:[.,]\d+)?)\s*(kg|kilo)/);
+  if (mKg) loadKg = parseFloat(mKg[1].replace(",", "."));
+  let mLb = after.match(/(\d+(?:[.,]\d+)?)\s*(lb|lbs|pound)/);
+  if (!mLb) mLb = lower.match(/(\d+(?:[.,]\d+)?)\s*(lb|lbs|pound)/);
+  if (mLb && !loadKg) loadKg = parseFloat(mLb[1].replace(",", ".")) * 0.4536;
 
+  // %1RM explicite ("85%", "@70%"). Filtre les pourcentages "BW" qui ne sont
+  // pas un %1RM mais un %poids-du-corps.
   let loadPctRm: number | undefined;
-  const pct = lower.match(/(\d{1,3})\s*%/);
-  if (pct) loadPctRm = parseInt(pct[1], 10) / 100;
+  const ctxPct = after + " " + lower; // priorité à ce qui suit le mouvement
+  const pctBw = ctxPct.match(/(\d{1,3})\s*%\s*(?:bw|pds|poids)/);
+  const pctSimple = ctxPct.match(/(\d{1,3})\s*%(?!\s*(?:bw|pds|poids))/);
+  if (pctSimple && !pctBw) loadPctRm = parseInt(pctSimple[1], 10) / 100;
 
-  return { reps, loadKg, loadPctRm };
+  // Charge exprimée en multiple du poids du corps : "@1.2BW", "1.2xBW",
+  // "80% BW", "0.8 BW", "x1.5 BW".
+  let loadPctBw: number | undefined;
+  const bwAt = ctxPct.match(/@?\s*(\d+(?:[.,]\d+)?)\s*[x×]?\s*bw/);
+  if (bwAt) {
+    loadPctBw = parseFloat(bwAt[1].replace(",", "."));
+  } else if (pctBw) {
+    loadPctBw = parseInt(pctBw[1], 10) / 100;
+  }
+
+  return { reps, loadKg, loadPctRm, loadPctBw };
 }
 
 function expandWithScheme(
@@ -412,7 +448,7 @@ function expandWithScheme(
   // Groupes par ordre d'apparition
   for (const m of rawMatches) {
     const matchIndexInLine = m.index - m.lineStart;
-    const { reps, loadKg, loadPctRm, distanceM } = extractRepsAndLoad(m.line, matchIndexInLine, m.movement);
+    const { reps, loadKg, loadPctRm, loadPctBw, distanceM } = extractRepsAndLoad(m.line, matchIndexInLine, m.movement);
     let totalReps = reps;
     let totalDistance = distanceM || 0;
 
@@ -449,6 +485,7 @@ function expandWithScheme(
       distanceM: totalDistance || undefined,
       loadKg,
       loadPctRm,
+      loadPctBw,
       estimatedSeconds,
       rawLine: m.line.trim(),
     });
@@ -560,13 +597,28 @@ function computeScores(
       caps[sec] += 1.0 * w;
     }
 
-    // Bonus charge: si load_pct >= 0.85 → force_max +; >= 0.7 → force_max + endurance_force
+    // Bonus charge — échelle à 5 paliers basée sur loadPctRmEstimated en priorité
+    // (intègre %1RM explicite, %BW, ou kg+BW+ratio), sinon loadPctRm explicite,
+    // sinon typicalLoad du mouvement.
     const eff =
-      d.loadPctRm !== undefined
+      d.loadPctRmEstimated !== undefined
+        ? d.loadPctRmEstimated
+        : d.loadPctRm !== undefined
         ? d.loadPctRm
         : d.movement.typicalLoad;
-    if (eff >= 0.85) caps.force_max += 1.0 * w;
-    else if (eff >= 0.7) caps.force_max += 0.5 * w;
+    if (eff >= 0.95) {
+      caps.force_max += 1.4 * w;
+      caps.skill += 0.3 * w;
+    } else if (eff >= 0.85) {
+      caps.force_max += 1.0 * w;
+    } else if (eff >= 0.70) {
+      caps.force_max += 0.5 * w;
+      caps.endurance_force += 0.2 * w;
+    } else if (eff >= 0.50) {
+      caps.endurance_force += 0.3 * w;
+    } else if (eff > 0 && eff < 0.40) {
+      caps.endurance_force += 0.5 * w;
+    }
 
     // Cardio long → VO2max bonus
     if (d.movement.isCardio && d.distanceM && d.distanceM >= 1000) {
@@ -735,7 +787,13 @@ function buildSummary(a: WodAnalysis): string {
 export function analyzeWod(
   rawText: string,
   extraMovements: MovementDef[] = [],
-  options: { deathByCapOverride?: number; exmomRoundsOverride?: number } = {}
+  options: {
+    deathByCapOverride?: number;
+    exmomRoundsOverride?: number;
+    bodyweightKg?: number | null;
+    /** Override manuel des reps cumulées par mouvement. Clé = name du mouvement (insensible à la casse). */
+    repsOverrides?: Record<string, number>;
+  } = {}
 ): WodAnalysis {
   const text = normalize(rawText);
   const fmt = detectFormat(text);
@@ -755,6 +813,60 @@ export function analyzeWod(
   }
 
   const detected = expandWithScheme(matches, fmt);
+
+  // ── Calcul %1RM théorique (loadPctRmEstimated) ─────────────────────────────
+  // 3 niveaux de priorité :
+  //   1. loadPctRm explicite (« 85% 1RM » saisi) → on copie
+  //   2. loadPctBw défini (« @1.2BW » ou « 80% BW ») et mvt avec loadRatioReference
+  //      → loadPctRmEst = loadPctBw / loadRatioReference
+  //   3. loadKg + bodyweightKg + loadRatioReference
+  //      → loadPctRmEst = loadKg / (bw × loadRatioReference)
+  const bw = typeof options.bodyweightKg === "number" && options.bodyweightKg > 20 && options.bodyweightKg < 300
+    ? options.bodyweightKg
+    : null;
+  for (const d of detected) {
+    const ref = d.movement.loadRatioReference;
+    if (d.loadPctRm !== undefined) {
+      d.loadPctRmEstimated = d.loadPctRm;
+    } else if (d.loadPctBw !== undefined && ref && ref > 0) {
+      d.loadPctRmEstimated = Math.min(1.5, Math.max(0, d.loadPctBw / ref));
+    } else if (d.loadKg !== undefined && bw && ref && ref > 0) {
+      d.loadPctRmEstimated = Math.min(1.5, Math.max(0, d.loadKg / (bw * ref)));
+      d.loadPctBw = d.loadKg / bw;
+    } else if (d.loadKg !== undefined && bw) {
+      // Pas de ref : on calcule au moins le %BW
+      d.loadPctBw = d.loadKg / bw;
+    }
+  }
+
+  // Override manuel des reps par mouvement (saisie utilisateur).
+  // Appliqué APRÈS le calcul des %RM (qui ne dépend pas des reps) mais AVANT
+  // computeDuration/computeScores pour que le scoring reflète la correction.
+  if (options.repsOverrides && detected.length > 0) {
+    const overrides = options.repsOverrides;
+    const normKey = (s: string) => s.toLowerCase().trim();
+    const map = new Map<string, number>();
+    for (const k of Object.keys(overrides)) {
+      const v = overrides[k];
+      if (typeof v === "number" && v >= 0 && Number.isFinite(v)) {
+        map.set(normKey(k), Math.round(v));
+      }
+    }
+    if (map.size > 0) {
+      for (const d of detected) {
+        const key = normKey(d.movement.name);
+        const override = map.get(key);
+        if (override !== undefined) {
+          d.reps = override;
+          // Recalcule la durée estimée (sauf cardio en distance pure)
+          if (!d.movement.isCardio || !d.distanceM) {
+            d.estimatedSeconds = Math.max(1, override) * d.movement.secondsPerRep;
+          }
+          d.repsOverridden = true;
+        }
+      }
+    }
+  }
 
   // Override Death by si l'utilisateur a fixé un cap explicite via le slider UI
   if (

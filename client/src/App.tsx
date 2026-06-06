@@ -11,6 +11,8 @@ import HistoriquePage from "@/pages/historique";
 import ProgrammationPage from "@/pages/programmation";
 import { HistoryProvider } from "@/lib/HistoryContext";
 import { AnalyzerStoreProvider } from "@/lib/analyzerStore";
+import { CustomMovementsProvider } from "@/lib/CustomMovementsContext";
+import { BodyweightProvider } from "@/lib/BodyweightContext";
 
 function AppRouter() {
   return (
@@ -28,14 +30,18 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AnalyzerStoreProvider>
-          <HistoryProvider>
-            <Toaster />
-            <Router hook={useHashLocation}>
-              <AppRouter />
-            </Router>
-          </HistoryProvider>
-        </AnalyzerStoreProvider>
+        <CustomMovementsProvider>
+          <BodyweightProvider>
+            <AnalyzerStoreProvider>
+              <HistoryProvider>
+                <Toaster />
+                <Router hook={useHashLocation}>
+                  <AppRouter />
+                </Router>
+              </HistoryProvider>
+            </AnalyzerStoreProvider>
+          </BodyweightProvider>
+        </CustomMovementsProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
