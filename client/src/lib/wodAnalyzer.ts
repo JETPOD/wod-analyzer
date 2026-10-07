@@ -373,7 +373,7 @@ function extractRepsAndLoad(
   line: string,
   matchIndexInLine: number,
   mv: MovementDef
-): { reps: number; loadKg?: number; loadPctRm?: number; distanceM?: number } {
+): { reps: number; loadKg?: number; loadPctRm?: number; loadPctBw?: number; distanceM?: number } {
   const lower = line.toLowerCase();
 
   // Distance en m / km / mile pour cardio

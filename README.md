@@ -30,12 +30,13 @@ Scoring déterministe : pondération temps × dominante × ajustements globaux (
 - Tailwind CSS + shadcn/ui
 - Recharts pour les radars
 - jsPDF + html2canvas pour l'export
-- 100 % frontend, aucun backend, aucun stockage navigateur
+- 100 % frontend, aucun backend ni base de données serveur
+- Historique et mouvements personnalisés en mémoire React (effacés au rechargement) ; poids corporel conservé localement dans `localStorage`
 
 ## Développement local
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -44,9 +45,13 @@ npm run dev
 Le dossier `docs/` contient le build statique servi par GitHub Pages depuis la branche `main`. Pour reconstruire :
 
 ```bash
+npm run check
 npm run build
-rm -rf docs && cp -r dist/public docs
 ```
+
+Vite écrit directement dans `docs/` et remplace le build précédent. Committez le dossier `docs/` reconstruit avec les sources, puis configurez GitHub Pages sur `main` / `docs`. Les assets utilisent des chemins relatifs et les pages de l’application des routes avec `#`, compatibles avec le sous-chemin `/wod-analyzer/`.
+
+Pour vérifier le build localement : `npm run preview`. Le développement et la prévisualisation utilisent les serveurs de Vite ; aucun serveur applicatif Express ni fichier SQLite n’est nécessaire. Node.js 20.19+ ou 22.12+ est requis par Vite 7.
 
 ## Limites
 

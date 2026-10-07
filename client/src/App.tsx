@@ -1,7 +1,5 @@
 import { Switch, Route, Router } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -28,22 +26,20 @@ function AppRouter() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <CustomMovementsProvider>
-          <BodyweightProvider>
-            <AnalyzerStoreProvider>
-              <HistoryProvider>
-                <Toaster />
-                <Router hook={useHashLocation}>
-                  <AppRouter />
-                </Router>
-              </HistoryProvider>
-            </AnalyzerStoreProvider>
-          </BodyweightProvider>
-        </CustomMovementsProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <TooltipProvider>
+      <CustomMovementsProvider>
+        <BodyweightProvider>
+          <AnalyzerStoreProvider>
+            <HistoryProvider>
+              <Toaster />
+              <Router hook={useHashLocation}>
+                <AppRouter />
+              </Router>
+            </HistoryProvider>
+          </AnalyzerStoreProvider>
+        </BodyweightProvider>
+      </CustomMovementsProvider>
+    </TooltipProvider>
   );
 }
 
