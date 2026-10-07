@@ -171,7 +171,7 @@ export function CustomMovementDialog({ open, onOpenChange, initialName = "", onA
     sumOk;
 
   function handleAdd() {
-    if (!isValid || category === "" || dominant === "") return;
+    if (!isValid) return;
     const slug = slugify(name.trim());
     const id = `custom_${Date.now()}_${slug}`;
     const aliases =

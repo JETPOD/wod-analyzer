@@ -222,7 +222,7 @@ function planWeek(targets: Targets, sessionsPerWeek: number): Target[] {
   }
 
   // Fallback : si rien n'a tenu, placement séquentiel
-  if (slots.every((s) => s === "repos")) {
+  if (slots.every((s): boolean => s === "repos")) {
     for (let i = 0; i < sorted.length && i < order.length; i++) {
       slots[order[i]] = sorted[i];
     }
@@ -338,7 +338,7 @@ export default function ProgrammationPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-              {(["force_max", "endurance_force", "metabolique", "oxydatif", "skill"] as Target[]).map(
+              {(["force_max", "endurance_force", "metabolique", "oxydatif", "skill"] as (keyof Targets)[]).map(
                 (t) => (
                   <div key={t}>
                     <div className="flex items-baseline justify-between mb-1">
